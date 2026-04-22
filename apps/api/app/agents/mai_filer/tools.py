@@ -1,0 +1,337 @@
+"""Mai Filer tool registry — Phase 2 slice.
+
+Each tool is a small, typed function backed by a pure calculator in
+`apps/api/app/tax/`. The tool exposes:
+
+  - `name`   : Claude tool name (stable).
+  - `schema` : JSON schema Claude sees (tools API).
+  - `run`    : pure Python callable with validated inputs.
+
+The orchestrator's tool-use loop hands Claude the `schema`, receives
+`tool_use` blocks, invokes `run(**args)`, and feeds the JSON result back as
+`tool_result`. No business logic lives inside the orchestrator.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Any, Callable
+
+from app.tax.dev_levy import calculate_dev_levy
+from app.tax.paye import calculate_paye
+from app.tax.pit import calculate_pit_2026
+from app.tax.reliefs import ReliefScenario, explore_reliefs
+from app.tax.vat import (
+    calculate_vat,
+    distance_to_threshold,
+    is_vat_registrable,
+)
+
+# ---------------------------------------------------------------------------
+# Serialization helpers — Decimal is not JSON-safe.
+# ---------------------------------------------------------------------------
+
+
+def _d(value: Decimal) -> str:
+    """Render a Decimal as a plain string so the downstream LLM can quote it
+    without float drift."""
+    return f"{value:f}"
+
+
+def _pit_payload(result) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return {
+        "annual_income": _d(result.annual_income),
+        "total_tax": _d(result.total_tax),
+        "effective_rate": _d(result.effective_rate),
+        "take_home": _d(result.take_home),
+        "bands": [
+            {
+                "order": b.band.order,
+                "name": b.band.name,
+                "rate": _d(b.band.rate),
+                "taxable_amount": _d(b.taxable_amount),
+                "tax_amount": _d(b.tax_amount),
+            }
+            for b in result.bands
+        ],
+    }
+
+
+def _paye_payload(result) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return {
+        "annual_gross": _d(result.annual_gross),
+        "deductions": {
+            "pension": _d(result.deductions.pension),
+            "nhis": _d(result.deductions.nhis),
+            "cra": _d(result.deductions.cra),
+            "other_reliefs": _d(result.deductions.other_reliefs),
+            "total": _d(result.deductions.total),
+        },
+        "chargeable_income": _d(result.chargeable_income),
+        "annual_tax": _d(result.annual_tax),
+        "monthly_tax": _d(result.monthly_tax),
+        "take_home_annual": _d(result.take_home_annual),
+        "take_home_monthly": _d(result.take_home_monthly),
+        "pit": _pit_payload(result.pit),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tool runners
+# ---------------------------------------------------------------------------
+
+
+def _run_calc_pit(annual_income: float | int | str) -> dict[str, Any]:
+    result = calculate_pit_2026(Decimal(str(annual_income)))
+    return _pit_payload(result)
+
+
+def _run_calc_paye(
+    annual_gross: float | int | str,
+    pension: float | int | str = 0,
+    nhis: float | int | str = 0,
+    cra: float | int | str = 0,
+    other_reliefs: float | int | str = 0,
+) -> dict[str, Any]:
+    result = calculate_paye(
+        Decimal(str(annual_gross)),
+        pension=Decimal(str(pension)),
+        nhis=Decimal(str(nhis)),
+        cra=Decimal(str(cra)),
+        other_reliefs=Decimal(str(other_reliefs)),
+    )
+    return _paye_payload(result)
+
+
+def _run_explore_reliefs(
+    annual_gross: float | int | str,
+    scenarios: list[dict[str, Any]],
+    baseline_pension: float | int | str = 0,
+    baseline_nhis: float | int | str = 0,
+    baseline_cra: float | int | str = 0,
+    baseline_other_reliefs: float | int | str = 0,
+) -> dict[str, Any]:
+    parsed = [
+        ReliefScenario(category=s["category"], amount=Decimal(str(s["amount"])))
+        for s in scenarios
+    ]
+    baseline, outcomes = explore_reliefs(
+        Decimal(str(annual_gross)),
+        baseline_pension=Decimal(str(baseline_pension)),
+        baseline_nhis=Decimal(str(baseline_nhis)),
+        baseline_cra=Decimal(str(baseline_cra)),
+        baseline_other_reliefs=Decimal(str(baseline_other_reliefs)),
+        scenarios=parsed,
+    )
+    return {
+        "baseline": _paye_payload(baseline),
+        "outcomes": [
+            {
+                "category": o.scenario.category,
+                "amount": _d(o.scenario.amount),
+                "baseline_tax": _d(o.baseline_tax),
+                "projected_tax": _d(o.projected_tax),
+                "tax_saved": _d(o.tax_saved),
+                "projected_chargeable": _d(o.projected_chargeable),
+            }
+            for o in outcomes
+        ],
+    }
+
+
+def _run_calc_vat(
+    taxable_supply: float | int | str,
+    exempt_supply: float | int | str = 0,
+    input_vat: float | int | str = 0,
+) -> dict[str, Any]:
+    result = calculate_vat(
+        Decimal(str(taxable_supply)),
+        exempt_supply=Decimal(str(exempt_supply)),
+        input_vat=Decimal(str(input_vat)),
+    )
+    return {
+        "taxable_supply": _d(result.taxable_supply),
+        "exempt_supply": _d(result.exempt_supply),
+        "rate": _d(result.rate),
+        "output_vat": _d(result.output_vat),
+        "input_vat": _d(result.input_vat),
+        "net_vat_payable": _d(result.net_vat_payable),
+        "total_supply": _d(result.total_supply),
+    }
+
+
+def _run_check_vat_registrable(annual_turnover: float | int | str) -> dict[str, Any]:
+    turnover = Decimal(str(annual_turnover))
+    return {
+        "annual_turnover": _d(turnover),
+        "is_registrable": is_vat_registrable(turnover),
+        "threshold": "100000000.00",
+        "distance_to_threshold": _d(distance_to_threshold(turnover)),
+    }
+
+
+def _run_calc_dev_levy(assessable_profit: float | int | str) -> dict[str, Any]:
+    levy = calculate_dev_levy(Decimal(str(assessable_profit)))
+    return {"assessable_profit": _d(Decimal(str(assessable_profit))), "levy": _d(levy)}
+
+
+# ---------------------------------------------------------------------------
+# Tool registry
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Tool:
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+    run: Callable[..., dict[str, Any]]
+
+
+TOOLS: tuple[Tool, ...] = (
+    Tool(
+        name="calc_pit",
+        description=(
+            "Compute Personal Income Tax (PIT) on annual income using the 2026 "
+            "Nigerian bands. Returns total tax, effective rate, and a per-band "
+            "breakdown. Use this when the user asks for PIT on a naira amount."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "annual_income": {
+                    "type": "number",
+                    "description": "Annual income in Nigerian naira (₦). Must be >= 0.",
+                }
+            },
+            "required": ["annual_income"],
+        },
+        run=_run_calc_pit,
+    ),
+    Tool(
+        name="calc_paye",
+        description=(
+            "Compute PAYE tax on employment income after deductions "
+            "(pension, NHIS, CRA, other reliefs). All amounts are annual naira. "
+            "Use this when the user gives payslip or salary details."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "annual_gross": {"type": "number"},
+                "pension": {"type": "number", "default": 0},
+                "nhis": {"type": "number", "default": 0},
+                "cra": {"type": "number", "default": 0},
+                "other_reliefs": {"type": "number", "default": 0},
+            },
+            "required": ["annual_gross"],
+        },
+        run=_run_calc_paye,
+    ),
+    Tool(
+        name="explore_reliefs",
+        description=(
+            "Project PAYE savings from candidate reliefs. Each scenario is "
+            "independent; amounts are absolute naira additions to the user's "
+            "deductions. Categories: 'pension_topup' adds to pension; any other "
+            "label (e.g. 'life_insurance', 'nhf') adds to other_reliefs."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "annual_gross": {"type": "number"},
+                "scenarios": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "category": {"type": "string"},
+                            "amount": {"type": "number"},
+                        },
+                        "required": ["category", "amount"],
+                    },
+                },
+                "baseline_pension": {"type": "number", "default": 0},
+                "baseline_nhis": {"type": "number", "default": 0},
+                "baseline_cra": {"type": "number", "default": 0},
+                "baseline_other_reliefs": {"type": "number", "default": 0},
+            },
+            "required": ["annual_gross", "scenarios"],
+        },
+        run=_run_explore_reliefs,
+    ),
+    Tool(
+        name="calc_vat",
+        description=(
+            "Compute VAT at the 2026 standard rate (7.5%). Takes taxable "
+            "supply, optional exempt supply and input-VAT credit. Returns "
+            "output VAT, input VAT, and net VAT payable."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "taxable_supply": {"type": "number"},
+                "exempt_supply": {"type": "number", "default": 0},
+                "input_vat": {"type": "number", "default": 0},
+            },
+            "required": ["taxable_supply"],
+        },
+        run=_run_calc_vat,
+    ),
+    Tool(
+        name="check_vat_registrable",
+        description=(
+            "Check whether an entity must register for VAT based on the ₦100m "
+            "annual-turnover threshold (NTAA 2026). Returns a boolean and the "
+            "distance to the threshold."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {"annual_turnover": {"type": "number"}},
+            "required": ["annual_turnover"],
+        },
+        run=_run_check_vat_registrable,
+    ),
+    Tool(
+        name="calc_dev_levy",
+        description=(
+            "Compute the 4% Development Levy on assessable profit. This is "
+            "corporate (v2 scope); use only when explicitly asked about a "
+            "company's levy."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {"assessable_profit": {"type": "number"}},
+            "required": ["assessable_profit"],
+        },
+        run=_run_calc_dev_levy,
+    ),
+)
+
+_TOOL_BY_NAME: dict[str, Tool] = {t.name: t for t in TOOLS}
+
+
+def tool_schemas() -> list[dict[str, Any]]:
+    """Return Claude tool descriptors."""
+    return [
+        {"name": t.name, "description": t.description, "input_schema": t.input_schema}
+        for t in TOOLS
+    ]
+
+
+def run_tool(name: str, arguments: dict[str, Any] | None) -> str:
+    """Dispatch a tool call. Returns a JSON string (Claude's tool_result payload)."""
+    tool = _TOOL_BY_NAME.get(name)
+    if tool is None:
+        return json.dumps({"error": f"unknown tool: {name}"})
+    try:
+        result = tool.run(**(arguments or {}))
+    except Exception as exc:  # surface to Claude; never silently swallow
+        return json.dumps({"error": str(exc)})
+    return json.dumps(result)
+
+
+def tool_names() -> list[str]:
+    return [t.name for t in TOOLS]

@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agents.mai_filer.orchestrator import (
+    AgentTurn,
     AnthropicUsage,
     MaiFilerOrchestrator,
     StreamResult,
@@ -41,15 +42,27 @@ class FakeAnthropic:
         max_tokens: int,
         system: list[dict],
         messages: list[dict],
-    ) -> tuple[str, AnthropicUsage]:
+        tools: list[dict] | None = None,
+    ) -> AgentTurn:
         self.calls.append(
-            {"model": model, "max_tokens": max_tokens, "system": system, "messages": messages}
+            {
+                "model": model,
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": messages,
+                "tools": tools,
+            }
         )
-        return self.reply, AnthropicUsage(
-            input_tokens=100,
-            output_tokens=42,
-            cache_read_input_tokens=80,
-            cache_creation_input_tokens=0,
+        return AgentTurn(
+            text=self.reply,
+            tool_calls=[],
+            stop_reason="end_turn",
+            usage=AnthropicUsage(
+                input_tokens=100,
+                output_tokens=42,
+                cache_read_input_tokens=80,
+                cache_creation_input_tokens=0,
+            ),
         )
 
     def messages_stream(

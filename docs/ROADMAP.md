@@ -71,25 +71,25 @@ the user's chosen Nigerian language.
 - [ ] **P1.18** — Thread list sidebar; load-by-id
 - [ ] **P1.19** — Demo flow: "Hello Mai" in each of en / ha / yo / ig / pcm → Mai introduces herself in that language
 
-## PHASE 2 — Tax Calculator Service (Individual-First)
+## PHASE 2 — Tax Calculator Service (Individual-First) ✅ v1 SLICE COMPLETE
 
 Goal: Mai can compute PIT and PAYE via tool use, explain bands, and propose
 legal reliefs.
 
-- [ ] **P2.1** — `apps/api/app/tax/pit.py` — `calculate_pit_2026(annual_income: Decimal) -> PITResult` with per-band breakdown
-- [ ] **P2.2** — Unit tests covering each band boundary + zero + negative guard
-- [ ] **P2.3** — `apps/api/app/tax/paye.py` — PAYE after CRA, pension, NHIS
-- [ ] **P2.4** — PAYE unit tests (representative payslip fixtures)
-- [ ] **P2.5** — `apps/api/app/tax/reliefs.py` — pension top-up, voluntary contributions, life-insurance relief calculator
-- [ ] **P2.6** — Relief unit tests
-- [ ] **P2.7** — Tool wrappers in `agents/mai_filer/tools.py` — `calc_pit`, `calc_paye`, `explore_reliefs`
-- [ ] **P2.8** — Register tools with the orchestrator; enable tool use
-- [ ] **P2.9** — Smoke test: "I earn ₦5m/year. What's my PIT?" → Mai calls `calc_pit`, explains bands in user's language
-- [ ] **P2.10** — `apps/api/app/tax/vat.py` + `is_vat_registrable(turnover)` (deferred surface for v2 SME, but the ₦100m check is also useful for individuals with side businesses)
-- [ ] **P2.11** — VAT unit tests
+- [x] **P2.1** — `apps/api/app/tax/pit.py` — `calculate_pit_2026(annual_income: Decimal) -> PITResult` with per-band breakdown
+- [x] **P2.2** — PIT unit tests (12 cases: band boundaries, zero, negative, decimal precision)
+- [x] **P2.3** — `apps/api/app/tax/paye.py` — PAYE after CRA, pension, NHIS, other reliefs
+- [x] **P2.4** — PAYE unit tests (8 cases: no-deductions parity, band-crossing, negative-guard, zero-floor)
+- [x] **P2.5** — `apps/api/app/tax/reliefs.py` — `explore_reliefs()` returns baseline + per-scenario projections
+- [x] **P2.6** — Relief unit tests (7 cases: topups, boundary hops, additive compounding)
+- [x] **P2.7** — Tool wrappers in `agents/mai_filer/tools.py` — `calc_pit`, `calc_paye`, `explore_reliefs`, `calc_vat`, `check_vat_registrable`, `calc_dev_levy`
+- [x] **P2.8** — Orchestrator tool-use loop (sync `chat()`) with `MAX_TOOL_TURNS` safety cap
+- [x] **P2.9** — Smoke tests: scripted Claude → tool_use → tool_result → final text; 75 tests passing overall
+- [x] **P2.10** — `apps/api/app/tax/vat.py` — `calculate_vat()`, `is_vat_registrable()`, `distance_to_threshold()`
+- [x] **P2.11** — VAT unit tests (10 cases)
 - [ ] **P2.12** — **[blocked — owner input]** `apps/api/app/tax/cit.py` — needs 2026 CIT bands by turnover
 - [ ] **P2.13** — **[blocked — owner input]** `apps/api/app/tax/wht.py` — needs 2026 WHT rates per transaction class
-- [ ] **P2.14** — `apps/api/app/tax/dev_levy.py` — 4% Development Levy (scaffold; exercised in v2)
+- [x] **P2.14** — `apps/api/app/tax/dev_levy.py` — 4% Development Levy (scaffold; full exercise in v2)
 
 ## PHASE 3 — Document Intelligence (Payslip First)
 

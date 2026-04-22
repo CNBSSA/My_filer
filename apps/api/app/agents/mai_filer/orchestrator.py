@@ -1,21 +1,24 @@
 """Mai Filer orchestrator — Claude client wrapper.
 
-Responsible for:
-- Building the system prompt with prompt caching on the base doctrine block.
-- Layering the user's language addendum on top.
-- Sending a single chat turn and returning the text + usage (sync).
-- Streaming a chat turn token-by-token over SSE (async).
+Responsibilities:
+- Build the system prompt with prompt caching on the base doctrine block.
+- Layer the user's language addendum on top.
+- Sync chat: single non-streaming call, with an internal tool-use loop that
+  invokes local tools (PIT / PAYE / VAT / reliefs) until Claude stops.
+- Async streaming chat: yields SSE-ready chunks (token deltas + final usage).
 
-Phase 1 keeps this single-turn and stateless; Phase 1b adds DB-backed thread
-persistence and Phase 2 introduces tool use.
+Phase 2 (P2.7/P2.8) introduced tool use on the sync path. Streaming tool use
+is a future enhancement; streaming currently runs without tools so UI demos
+stay simple.
 """
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from anthropic import Anthropic
 
@@ -25,9 +28,13 @@ from app.agents.mai_filer.schemas import (
     ChatResponse,
     ChatStreamChunk,
 )
+from app.agents.mai_filer.tools import run_tool, tool_schemas
 from app.config import get_settings
 from app.i18n import get_language
 from app.i18n.drift import apply_drift_note
+
+
+MAX_TOOL_TURNS = 5  # safety cap on the tool-use loop
 
 
 @dataclass
@@ -40,14 +47,35 @@ class AnthropicUsage:
 
 @dataclass
 class StreamResult:
-    """Final values emitted after a stream completes."""
-
     text: str
     usage: AnthropicUsage
 
 
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+@dataclass
+class AgentTurn:
+    """One round-trip with Claude.
+
+    - `text`: any text blocks emitted this turn (may be empty mid-loop).
+    - `tool_calls`: tool_use blocks Claude wants us to execute.
+    - `stop_reason`: "tool_use" → continue the loop; "end_turn" → we're done.
+    - `usage`: accumulated tokens this turn.
+    """
+
+    text: str
+    tool_calls: list[ToolCall]
+    stop_reason: str
+    usage: AnthropicUsage
+
+
 class AnthropicClient(Protocol):
-    """Minimal protocol so tests can inject a fake without importing anthropic."""
+    """Test-friendly surface; RealAnthropicClient wraps the SDK."""
 
     def messages_create(
         self,
@@ -56,7 +84,8 @@ class AnthropicClient(Protocol):
         max_tokens: int,
         system: list[dict],
         messages: list[dict],
-    ) -> tuple[str, AnthropicUsage]:
+        tools: list[dict] | None = None,
+    ) -> AgentTurn:
         ...
 
     def messages_stream(
@@ -67,12 +96,11 @@ class AnthropicClient(Protocol):
         system: list[dict],
         messages: list[dict],
     ) -> Iterator[str | StreamResult]:
-        """Yield text deltas as plain strings; final item must be a StreamResult."""
         ...
 
 
 class RealAnthropicClient:
-    """Thin adapter over the Anthropic SDK; exposes the Protocol above."""
+    """Adapter around the Anthropic SDK."""
 
     def __init__(self, api_key: str) -> None:
         self._client = Anthropic(api_key=api_key)
@@ -84,17 +112,33 @@ class RealAnthropicClient:
         max_tokens: int,
         system: list[dict],
         messages: list[dict],
-    ) -> tuple[str, AnthropicUsage]:
-        response = self._client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        )
-        text_parts = [
-            block.text for block in response.content if getattr(block, "type", None) == "text"
-        ]
-        text = "".join(text_parts).strip()
+        tools: list[dict] | None = None,
+    ) -> AgentTurn:
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": messages,
+        }
+        if tools:
+            kwargs["tools"] = tools
+        response = self._client.messages.create(**kwargs)
+
+        text_parts: list[str] = []
+        tool_calls: list[ToolCall] = []
+        for block in response.content:
+            block_type = getattr(block, "type", None)
+            if block_type == "text":
+                text_parts.append(block.text)
+            elif block_type == "tool_use":
+                tool_calls.append(
+                    ToolCall(
+                        id=block.id,
+                        name=block.name,
+                        input=dict(block.input),
+                    )
+                )
+
         usage = AnthropicUsage(
             input_tokens=getattr(response.usage, "input_tokens", 0) or 0,
             output_tokens=getattr(response.usage, "output_tokens", 0) or 0,
@@ -104,7 +148,12 @@ class RealAnthropicClient:
             )
             or 0,
         )
-        return text, usage
+        return AgentTurn(
+            text="".join(text_parts).strip(),
+            tool_calls=tool_calls,
+            stop_reason=getattr(response, "stop_reason", "end_turn") or "end_turn",
+            usage=usage,
+        )
 
     def messages_stream(
         self,
@@ -145,14 +194,17 @@ class RealAnthropicClient:
 
 
 class MaiFilerOrchestrator:
-    """Thin orchestrator — builds the request, delegates to Claude, returns a
-    typed response. No business logic lives here; tool dispatch arrives in
-    Phase 2 (P2.7+)."""
-
-    def __init__(self, client: AnthropicClient, model: str, max_tokens: int = 1024) -> None:
+    def __init__(
+        self,
+        client: AnthropicClient,
+        model: str,
+        max_tokens: int = 1024,
+        enable_tools: bool = True,
+    ) -> None:
         self._client = client
         self._model = model
         self._max_tokens = max_tokens
+        self._enable_tools = enable_tools
 
     def _build_messages(self, request: ChatRequest) -> list[dict]:
         messages: list[dict] = [
@@ -161,32 +213,84 @@ class MaiFilerOrchestrator:
         messages.append({"role": "user", "content": request.message})
         return messages
 
+    def _tools(self) -> list[dict] | None:
+        return tool_schemas() if self._enable_tools else None
+
     def chat(self, request: ChatRequest) -> ChatResponse:
         language = get_language(request.language)
         system_blocks = build_system_blocks(language.code)
+        messages = self._build_messages(request)
 
-        text, usage = self._client.messages_create(
-            model=self._model,
-            max_tokens=self._max_tokens,
-            system=system_blocks,
-            messages=self._build_messages(request),
-        )
+        tools = self._tools()
+        accumulated_text = ""
+        total_usage = AnthropicUsage()
+        turns_taken = 0
 
-        text = apply_drift_note(text, language.code)
+        while True:
+            turn = self._client.messages_create(
+                model=self._model,
+                max_tokens=self._max_tokens,
+                system=system_blocks,
+                messages=messages,
+                tools=tools,
+            )
+            total_usage.input_tokens += turn.usage.input_tokens
+            total_usage.output_tokens += turn.usage.output_tokens
+            total_usage.cache_read_input_tokens += turn.usage.cache_read_input_tokens
+            total_usage.cache_creation_input_tokens += turn.usage.cache_creation_input_tokens
+
+            if turn.text:
+                accumulated_text = turn.text
+
+            if turn.stop_reason != "tool_use" or not turn.tool_calls:
+                break
+
+            # Append the assistant's tool-use turn verbatim (text + tool_use blocks).
+            assistant_blocks: list[dict[str, Any]] = []
+            if turn.text:
+                assistant_blocks.append({"type": "text", "text": turn.text})
+            for call in turn.tool_calls:
+                assistant_blocks.append(
+                    {
+                        "type": "tool_use",
+                        "id": call.id,
+                        "name": call.name,
+                        "input": call.input,
+                    }
+                )
+            messages.append({"role": "assistant", "content": assistant_blocks})
+
+            # Execute each tool and feed results back as a single user turn.
+            tool_results: list[dict[str, Any]] = []
+            for call in turn.tool_calls:
+                result_json = run_tool(call.name, call.input)
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": call.id,
+                        "content": result_json,
+                    }
+                )
+            messages.append({"role": "user", "content": tool_results})
+
+            turns_taken += 1
+            if turns_taken >= MAX_TOOL_TURNS:
+                break
+
+        final_text = apply_drift_note(accumulated_text, language.code)
 
         return ChatResponse(
             thread_id=request.thread_id or str(uuid.uuid4()),
-            message=text,
+            message=final_text,
             language=language.code,
             model=self._model,
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            cache_read_tokens=usage.cache_read_input_tokens,
-            cache_creation_tokens=usage.cache_creation_input_tokens,
+            input_tokens=total_usage.input_tokens,
+            output_tokens=total_usage.output_tokens,
+            cache_read_tokens=total_usage.cache_read_input_tokens,
+            cache_creation_tokens=total_usage.cache_creation_input_tokens,
         )
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[ChatStreamChunk]:
-        """Yield SSE-ready chunks: start → delta* → done (with final usage)."""
         language = get_language(request.language)
         system_blocks = build_system_blocks(language.code)
         thread_id = request.thread_id or str(uuid.uuid4())
@@ -229,10 +333,21 @@ class MaiFilerOrchestrator:
 
 
 def build_default_orchestrator() -> MaiFilerOrchestrator:
-    """Factory using the live Anthropic client and settings."""
     settings = get_settings()
     client: AnthropicClient = RealAnthropicClient(api_key=settings.anthropic_api_key)
     return MaiFilerOrchestrator(
         client=client,
         model=settings.claude_model_orchestrator,
     )
+
+
+__all__ = [
+    "AgentTurn",
+    "AnthropicClient",
+    "AnthropicUsage",
+    "MaiFilerOrchestrator",
+    "RealAnthropicClient",
+    "StreamResult",
+    "ToolCall",
+    "build_default_orchestrator",
+]
