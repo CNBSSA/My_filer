@@ -197,9 +197,26 @@ the service modules described in `ARCHITECTURE.md`.
 - Exact CIT band thresholds for 2026 (small / medium / large turnover cutoffs).
 - Exact WHT rates per transaction class for 2026.
 - Final list of 55 fields and their 8 sections.
-- Aggregator choice between Dojah / Seamfix / Prembly (owner to pick).
+- NRS criteria for "medium / large" taxpayer triggering the 24-hour MBS sync.
+- Preferred Access Point Provider partner (DigiTax / UsawaConnect / ...).
 - State portal integration priority (which state portals, if any, for v1).
-- Multilingual scope for v1 (English only vs. Hausa / Yoruba / Igbo).
 
-These will be resolved in the Master Plan or by direct user answer, not by
-guessing.
+These will be resolved by direct owner answer, not by guessing.
+
+### Where placeholders live in the code
+
+Phase 9 ships calculators + envelope validators whose *math* is
+production-ready, but the statutory *rates and field names* are still
+pending owner confirmation. Placeholders are quarantined to a single
+package so an owner-supplied update is a one-directory change:
+
+- `apps/api/app/tax/statutory/cit_bands.py` — `CIT_BANDS_2026` + `CIT_TERTIARY_RATE` + `CIT_SOURCE`
+- `apps/api/app/tax/statutory/wht_rates.py` — `WHT_RATES_2026` + `WHT_SOURCE`
+- `apps/api/app/tax/statutory/ubl_fields.py` — `UBL_REQUIRED_FIELDS_2026` + `UBL_SECTIONS` + `UBL_SOURCE`
+
+Each table ships with a `SOURCE` string that starts with `"PLACEHOLDER:"`
+until the owner replaces it. Every Mai tool that touches these tables
+echoes `statutory_is_placeholder: true` on its response so the agent can
+caveat any figure it quotes. Endpoints bound for production call
+`assert_confirmed()` on the relevant source string and refuse to run
+while the placeholder marker is in place.

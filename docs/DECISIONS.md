@@ -146,6 +146,35 @@
 
 ---
 
+## ADR-0005 — Phase 9 scaffold ships with quarantined placeholder statutory tables
+
+- **Status**: Accepted (2026-04-22, delegated-decision).
+- **Context**: ADR-0002 makes Phase 9 (SME / CIT / VAT / MBS) v2 and lists
+  specific regulatory data the owner must supply before production:
+  2026 CIT bands, 2026 WHT rates, the NRS 55-field UBL 3.0 list, and the
+  "medium / large" threshold. The owner requested that Phase 9 begin
+  immediately despite the pending data; refusing would block months of
+  scaffolding work that is orthogonal to the data itself.
+- **Decision**: Ship the Phase 9 calculators + envelope validators +
+  Mai tools whose **logic** is data-agnostic. All rate- and
+  field-specific data lives in one quarantined package
+  (`apps/api/app/tax/statutory/`), each table marked with a
+  `*_SOURCE = "PLACEHOLDER:..."` constant. Production code calls
+  `assert_confirmed()` to refuse running while placeholders are in
+  place; Mai tool responses echo `statutory_is_placeholder: true` so
+  the agent can caveat any figure it quotes.
+- **Consequences**
+  - Tests + local dev run against illustrative rates. Confirmed rates
+    drop in as a single-file replacement per table — no logic edits.
+  - Tool responses are self-describing: callers always know whether
+    they are looking at authoritative numbers.
+  - When the owner confirms 2026 data, ROADMAP tasks P9.4, P9.5, P9.6,
+    P9.7, P9.9 become unblocked without revisiting P9.0-P9.3.
+  - No Phase 9 endpoint reaches production state until `assert_confirmed`
+    is satisfied.
+
+---
+
 ## How to add a new ADR
 
 1. Copy the block format above.

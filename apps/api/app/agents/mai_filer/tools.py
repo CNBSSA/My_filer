@@ -27,15 +27,19 @@ from app.gateway.service import SubmissionConfigError, submit_filing_to_nrs
 from app.identity.base import AggregatorError
 from app.identity.factory import build_identity_service
 from app.identity.service import ConsentRequiredError
+from app.filing.ubl import UBLEnvelope, validate_envelope
+from app.tax.cit import calculate_cit_2026
 from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
 from app.tax.pit import calculate_pit_2026
 from app.tax.reliefs import ReliefScenario, explore_reliefs
+from app.tax.statutory import CIT_SOURCE, UBL_SOURCE, WHT_SOURCE, is_placeholder
 from app.tax.vat import (
     calculate_vat,
     distance_to_threshold,
     is_vat_registrable,
 )
+from app.tax.wht import calculate_wht, known_transaction_classes
 
 # ---------------------------------------------------------------------------
 # Serialization helpers — Decimal is not JSON-safe.
@@ -183,6 +187,88 @@ def _run_check_vat_registrable(annual_turnover: float | int | str) -> dict[str, 
 def _run_calc_dev_levy(assessable_profit: float | int | str) -> dict[str, Any]:
     levy = calculate_dev_levy(Decimal(str(assessable_profit)))
     return {"assessable_profit": _d(Decimal(str(assessable_profit))), "levy": _d(levy)}
+
+
+# ---------------------------------------------------------------------------
+# Corporate tools (Phase 9 — CIT / WHT / UBL)
+# ---------------------------------------------------------------------------
+
+
+def _run_calc_cit(
+    annual_turnover: float | int | str,
+    assessable_profit: float | int | str,
+    include_tertiary: bool = True,
+) -> dict[str, Any]:
+    result = calculate_cit_2026(
+        annual_turnover=Decimal(str(annual_turnover)),
+        assessable_profit=Decimal(str(assessable_profit)),
+        include_tertiary=include_tertiary,
+    )
+    return {
+        "annual_turnover": _d(result.annual_turnover),
+        "assessable_profit": _d(result.assessable_profit),
+        "tier": result.tier,
+        "cit_rate": _d(result.cit_rate),
+        "cit_amount": _d(result.cit_amount),
+        "tertiary_rate": _d(result.tertiary_rate),
+        "tertiary_amount": _d(result.tertiary_amount),
+        "total_payable": _d(result.total_payable),
+        "notes": list(result.notes),
+        "statutory_source": CIT_SOURCE,
+        "statutory_is_placeholder": is_placeholder(CIT_SOURCE),
+    }
+
+
+def _run_calc_wht(
+    gross_amount: float | int | str,
+    transaction_class: str,
+) -> dict[str, Any]:
+    try:
+        result = calculate_wht(
+            gross_amount=Decimal(str(gross_amount)),
+            transaction_class=transaction_class,
+        )
+    except ValueError as exc:
+        return {
+            "error": str(exc),
+            "known_classes": known_transaction_classes(),
+            "statutory_source": WHT_SOURCE,
+            "statutory_is_placeholder": is_placeholder(WHT_SOURCE),
+        }
+    return {
+        "transaction_class": result.transaction_class,
+        "gross_amount": _d(result.gross_amount),
+        "wht_rate": _d(result.wht_rate),
+        "wht_amount": _d(result.wht_amount),
+        "net_payable": _d(result.net_payable),
+        "statutory_source": WHT_SOURCE,
+        "statutory_is_placeholder": is_placeholder(WHT_SOURCE),
+    }
+
+
+def _run_list_wht_classes() -> dict[str, Any]:
+    return {
+        "classes": known_transaction_classes(),
+        "statutory_source": WHT_SOURCE,
+        "statutory_is_placeholder": is_placeholder(WHT_SOURCE),
+    }
+
+
+def _run_validate_ubl_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Run structural validation over a proposed UBL 3.0 envelope."""
+    try:
+        typed = UBLEnvelope.model_validate(envelope)
+    except Exception as exc:
+        return {
+            "error": f"envelope failed schema parse: {exc}",
+            "statutory_source": UBL_SOURCE,
+            "statutory_is_placeholder": is_placeholder(UBL_SOURCE),
+        }
+    report = validate_envelope(typed)
+    payload = report.to_dict()
+    payload["statutory_source"] = UBL_SOURCE
+    payload["statutory_is_placeholder"] = is_placeholder(UBL_SOURCE)
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -607,6 +693,81 @@ TOOLS: tuple[Tool, ...] = (
             },
         },
         run=_run_list_recent_filings,
+    ),
+    Tool(
+        name="calc_cit",
+        description=(
+            "Compute Corporate Income Tax + tertiary education levy on a "
+            "Nigerian company's return. Takes annual_turnover (determines "
+            "tier) and assessable_profit. Returns the tier, rate, CIT "
+            "amount, tertiary amount, and total payable. The response also "
+            "tells you whether the underlying statutory table is still a "
+            "placeholder — if so, caveat your answer clearly and do NOT "
+            "treat the figure as authoritative for the 2026 year."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "annual_turnover": {"type": "number"},
+                "assessable_profit": {"type": "number"},
+                "include_tertiary": {"type": "boolean", "default": True},
+            },
+            "required": ["annual_turnover", "assessable_profit"],
+        },
+        run=_run_calc_cit,
+    ),
+    Tool(
+        name="calc_wht",
+        description=(
+            "Compute Withholding Tax and net payable for a given "
+            "transaction class and gross amount. Unknown classes return "
+            "an error listing the known classes. Statutory source is "
+            "surfaced so you can caveat when it's still a placeholder."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "gross_amount": {"type": "number"},
+                "transaction_class": {
+                    "type": "string",
+                    "description": (
+                        "One of the known WHT classes. Call list_wht_classes "
+                        "first if unsure."
+                    ),
+                },
+            },
+            "required": ["gross_amount", "transaction_class"],
+        },
+        run=_run_calc_wht,
+    ),
+    Tool(
+        name="list_wht_classes",
+        description=(
+            "Return the known WHT transaction classes from the current "
+            "statutory table."
+        ),
+        input_schema={"type": "object", "properties": {}},
+        run=_run_list_wht_classes,
+    ),
+    Tool(
+        name="validate_ubl_envelope",
+        description=(
+            "Structurally validate a proposed UBL 3.0 envelope: must have "
+            "8 sections in canonical order and exactly 55 fields covering "
+            "the current statutory list. Returns a findings list so you "
+            "can tell the user what to fix before MBS submission."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "envelope": {
+                    "type": "object",
+                    "description": "The UBLEnvelope dict: {version, profile, sections: [...]}.",
+                }
+            },
+            "required": ["envelope"],
+        },
+        run=_run_validate_ubl_envelope,
     ),
     Tool(
         name="submit_to_nrs",

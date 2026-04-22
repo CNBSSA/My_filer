@@ -34,6 +34,10 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "list_recent_filings",
         "verify_identity",
         "submit_to_nrs",
+        "calc_cit",
+        "calc_wht",
+        "list_wht_classes",
+        "validate_ubl_envelope",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -396,6 +400,63 @@ def test_verify_identity_tool_refuses_without_consent(override_db) -> None:
     )
     assert "error" in payload
     assert payload.get("reason") == "consent_required"
+
+
+def test_calc_cit_tool_flags_placeholder_statutory() -> None:
+    """P9 — calc_cit tool surfaces that the 2026 CIT table is still a placeholder."""
+    payload = json.loads(
+        run_tool(
+            "calc_cit",
+            {"annual_turnover": 80_000_000, "assessable_profit": 10_000_000},
+        )
+    )
+    assert payload["tier"] in {"small", "medium", "large"}
+    assert payload["cit_amount"] is not None
+    assert payload["statutory_is_placeholder"] is True
+    assert "PLACEHOLDER" in payload["statutory_source"]
+
+
+def test_calc_wht_tool_happy_path() -> None:
+    payload = json.loads(
+        run_tool(
+            "calc_wht",
+            {"gross_amount": 1_000_000, "transaction_class": "rent"},
+        )
+    )
+    assert payload["wht_amount"] is not None
+    assert payload["statutory_is_placeholder"] is True
+
+
+def test_calc_wht_tool_unknown_class_returns_error() -> None:
+    payload = json.loads(
+        run_tool(
+            "calc_wht",
+            {"gross_amount": 1_000, "transaction_class": "made_up"},
+        )
+    )
+    assert "error" in payload
+    assert "known_classes" in payload
+    assert "rent" in payload["known_classes"]
+
+
+def test_list_wht_classes_tool() -> None:
+    payload = json.loads(run_tool("list_wht_classes", {}))
+    assert "classes" in payload
+    assert "rent" in payload["classes"]
+
+
+def test_validate_ubl_envelope_tool_flags_missing_fields() -> None:
+    """An empty envelope fails validation with structural errors."""
+    payload = json.loads(
+        run_tool(
+            "validate_ubl_envelope",
+            {"envelope": {"version": "ubl-3.0", "sections": []}},
+        )
+    )
+    assert payload["ok"] is False
+    assert payload["statutory_is_placeholder"] is True
+    codes = {f["code"] for f in payload["findings"]}
+    assert "UBL-SECTION-COUNT" in codes
 
 
 def test_submit_to_nrs_tool_simulates_without_creds(db_session, override_db) -> None:

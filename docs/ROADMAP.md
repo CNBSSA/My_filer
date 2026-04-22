@@ -173,26 +173,33 @@ Goal: verified individual identity with NDPR-compliant consent.
 Guarded by ADR-0002. The post-deployment expansion track. Execution begins
 when the owner supplies the regulatory data listed below.
 
-### Data the owner must supply first
+### Data the owner must supply before production
 
-- 2026 CIT bands by turnover tier (small / medium / large cutoffs + rates).
-- 2026 WHT rates per transaction class (rent, professional, dividend, etc.).
-- The NRS UBL 3.0 **55 mandatory fields** list across 8 sections.
-- NRS criteria for "medium/large" taxpayer (decides who the 24-hour MBS
-  sync applies to).
+The calculators + validators ship with **placeholder statutory tables**
+so tests and local dev can run. They are loudly marked as
+non-authoritative via `*_SOURCE = "PLACEHOLDER:..."` constants; every
+tool response echoes this back in `statutory_is_placeholder: true`.
+Endpoints moving to production call `assert_confirmed()` and refuse to
+run until these drop in:
+
+- 2026 CIT bands by turnover tier → `apps/api/app/tax/statutory/cit_bands.py`.
+- 2026 WHT rates per transaction class → `apps/api/app/tax/statutory/wht_rates.py`.
+- NRS UBL 3.0 **55 mandatory fields** list across 8 sections → `apps/api/app/tax/statutory/ubl_fields.py`.
+- NRS criteria for "medium/large" taxpayer (decides who the 24-hour MBS sync applies to).
 - Preferred Access Point Provider partner (DigiTax / UsawaConnect / …).
 
-### Implementation tasks (post-data)
+### Implementation tasks
 
-- [ ] **P9.1** — CIT bands + calculator + tests
-- [ ] **P9.2** — WHT by transaction class + tests
-- [ ] **P9.3** — UBL 3.0 + 55-field schema + validator
-- [ ] **P9.4** — MBS 24h sync Celery pipeline + backoff
-- [ ] **P9.5** — E-invoice composer UI with QR + CSID rendering
-- [ ] **P9.6** — CAC verification flow (reuses Phase 5 aggregator adapters)
-- [ ] **P9.7** — SME filing pack (UBL 3.0 JSON + branded PDF variant)
-- [ ] **P9.8** — Mai Filer tools: `calc_cit`, `compose_einvoice`, `submit_mbs`
-- [ ] **P9.9** — Landing + chat UI: "I'm filing for a business" entry path
+- [x] **P9.0** — `tax/statutory/` package with placeholder CIT bands, WHT rates, and a 55-field-count-preserving UBL structure. Each table ships with a `_SOURCE` string that an `assert_confirmed()` guard can gate production on.
+- [x] **P9.1** — `tax/cit.py` — `calculate_cit_2026()` dispatches on injectable bands + tertiary rate; returns tier, CIT amount, tertiary amount, total payable, and notes; 8 tests.
+- [x] **P9.2** — `tax/wht.py` — `calculate_wht()` against injectable rate table; unknown class raises; 7 tests.
+- [x] **P9.3** — `filing/ubl/` package — `UBLEnvelope` Pydantic + JSON + XML serializers + validator asserting 8-section / 55-field invariants and emitting structured findings; 8 tests.
+- [ ] **P9.4** — MBS 24h sync Celery pipeline + backoff (deferred with P6.4/P6.5; the sync gateway path is already the shape of the eventual task).
+- [ ] **P9.5** — E-invoice composer UI with QR + CSID rendering.
+- [ ] **P9.6** — CAC verification flow (reuses Phase 5 aggregator adapters — same `IdentityAggregator` Protocol).
+- [ ] **P9.7** — SME filing pack (UBL 3.0 JSON + branded PDF variant reusing Phase 4 renderer).
+- [x] **P9.8** — Mai Filer tools: `calc_cit`, `calc_wht`, `list_wht_classes`, `validate_ubl_envelope`. Registry is now 17 tools. `compose_einvoice` and `submit_mbs` land with P9.5 / P9.4.
+- [ ] **P9.9** — Landing + chat UI: "I'm filing for a business" entry path.
 
 ## PHASE 11 — NGO / Tax-Exempt Bodies — **v2+**
 
