@@ -1,0 +1,16 @@
+{
+  "appName": "Mai Filer",
+  "tagline": "Mashawarcinka na haraji mai amfani da AI a Najeriya, 2026.",
+  "startChat": "Fara tattaunawa da Mai",
+  "aboutHeading": "Abin da Mai Filer ke yi",
+  "aboutBody": "Mai Filer shiri ne na AI don biyan haraji a Najeriya. Tana tambayoyi, tana karanta takardunka, tana lissafin harajinka, tana bayyana kowane naira, kuma tana shirya fayil na NRS. Kamar TurboTax da TaxSlayer — amma an haife shi a zamanin AI.",
+  "chat": {
+    "title": "Tattaunawa da Mai Filer",
+    "subtitle": "Biyan harajinka ta hanyar tattaunawa.",
+    "placeholder": "Tambayi Mai kome — payslip dinka, PIT, raguwa, matakan gaba…",
+    "send": "Aika",
+    "streaming": "Mai tana tunani…",
+    "language": "Harshe",
+    "emptyHint": "Gwada: \"Ina samun ₦5,000,000 a shekara. Menene PIT na 2026?\""
+  }
+}

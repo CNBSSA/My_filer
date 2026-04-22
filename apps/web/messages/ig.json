@@ -1,0 +1,16 @@
+{
+  "appName": "Mai Filer",
+  "tagline": "Onye ndumodu utu isi AI maka Naijiria, 2026.",
+  "startChat": "Malite nkata gi na Mai",
+  "aboutHeading": "Ihe Mai Filer na-eme",
+  "aboutBody": "Mai Filer bu ihe AI maka ikwu utu isi na Naijiria. O na-agu akwukwo gi, na-agbako utu isi gi, na-akowa naira ozo, ma na-akwado faili di njikere maka NRS. Dika TurboTax na TaxSlayer — mana amuru ya n'oge AI.",
+  "chat": {
+    "title": "Nkata na Mai Filer",
+    "subtitle": "Ikwu utu isi gi site na nkata.",
+    "placeholder": "Juo Mai ihe obula — payslip gi, PIT, mbelata, ihe ndi gaghi emecha…",
+    "send": "Zipu",
+    "streaming": "Mai na-eche echiche…",
+    "language": "Asusu",
+    "emptyHint": "Gbalia: \"Ana m enweta ₦5,000,000 n'afọ. Gịnị bụ PIT m maka 2026?\""
+  }
+}

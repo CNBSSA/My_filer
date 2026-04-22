@@ -1,15 +1,31 @@
-# `apps/web` — Mai Filer Frontend (placeholder)
+# Mai Filer — Web App
 
-Chat-first UI for Mai Filer. The full Next.js 15 + TypeScript + Tailwind
-scaffold is deferred to Phase 1 (see `/docs/ROADMAP.md` task P0.16) so the
-first commit can land without depending on network-level npm installs.
+Chat-first Next.js 16 + TypeScript + Tailwind UI for Mai Filer. Talks to the
+FastAPI backend at `../api/`.
 
-## When Phase 1 starts
+## Run locally
 
-```bash
-cd apps/web
-npx create-next-app@latest . --ts --tailwind --app --src-dir --eslint --no-import-alias
-```
+1. Start the backend (`apps/api/`):
+   ```bash
+   cd apps/api
+   uv sync              # or: pip install -e ".[dev]"
+   alembic upgrade head
+   uvicorn app.main:app --reload
+   ```
+2. Start the web app in another terminal:
+   ```bash
+   cd apps/web
+   npm install
+   npm run dev         # http://localhost:3000
+   ```
 
-Then wire `/chat` to the FastAPI `/v1/chat/stream` SSE endpoint per
-`/docs/ARCHITECTURE.md` §4.
+The API URL is configurable via `NEXT_PUBLIC_API_BASE`
+(default `http://localhost:8000`).
+
+## Structure
+
+- `src/app/page.tsx` — landing hero.
+- `src/app/chat/page.tsx` — chat with language selector and SSE stream.
+- `src/lib/messages.ts` — message catalog loader (en, ha, yo, ig, pcm).
+- `src/lib/api.ts` — `streamChat()` SSE client for `POST /v1/chat/stream`.
+- `messages/{code}.json` — UI strings per language (ADR-0004).

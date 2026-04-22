@@ -1,0 +1,16 @@
+{
+  "appName": "Mai Filer",
+  "tagline": "Your AI tax advisor for Naija, 2026.",
+  "startChat": "Start talk with Mai",
+  "aboutHeading": "Wetin Mai Filer dey do",
+  "aboutBody": "Mai Filer na AI app for tax wahala for Naija. She go ask you question, read your papers, calculate your tax, explain every naira, and prepare the file wey NRS dey need. E be like TurboTax and TaxSlayer — but born for the age of AI.",
+  "chat": {
+    "title": "Talk with Mai Filer",
+    "subtitle": "Your tax, through conversation.",
+    "placeholder": "Ask Mai anytin — your payslip, PIT, relief, next step…",
+    "send": "Send am",
+    "streaming": "Mai dey think…",
+    "language": "Language",
+    "emptyHint": "Try: \"I dey earn ₦5,000,000 every year. Wetin be my PIT for 2026?\""
+  }
+}

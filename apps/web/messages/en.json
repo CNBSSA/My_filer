@@ -1,0 +1,16 @@
+{
+  "appName": "Mai Filer",
+  "tagline": "Your AI tax advisor for Nigeria, 2026.",
+  "startChat": "Start chatting with Mai",
+  "aboutHeading": "What Mai Filer does",
+  "aboutBody": "Mai Filer is an AI-native Nigerian tax e-filing platform. She profiles you, reads your documents, computes your tax, explains every naira, and prepares filing packs that are NRS-ready. Peer to TurboTax and TaxSlayer — born in the age of AI.",
+  "chat": {
+    "title": "Chat with Mai Filer",
+    "subtitle": "Your filing, through conversation.",
+    "placeholder": "Ask Mai anything — your payslip, your PIT, reliefs, next steps…",
+    "send": "Send",
+    "streaming": "Mai is thinking…",
+    "language": "Language",
+    "emptyHint": "Try: \"I earn ₦5,000,000 a year. What is my PIT for 2026?\""
+  }
+}

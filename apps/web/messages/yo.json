@@ -1,0 +1,16 @@
+{
+  "appName": "Mai Filer",
+  "tagline": "Onimoran owo ori AI fun Naijiria, 2026.",
+  "startChat": "Bere iforowanilenuwo pelu Mai",
+  "aboutHeading": "Ohun ti Mai Filer nse",
+  "aboutBody": "Mai Filer je ipese AI fun sisan owo ori ni Naijiria. O n beere awon ibeere, o n ka awon iwe re, o n se isiro owo ori, o n salaye naira kookan, o si n pese awon faili ti o wa fun NRS. Gegebi TurboTax ati TaxSlayer — sugbon ti a bi ni akoko AI.",
+  "chat": {
+    "title": "Iforowanilenuwo pelu Mai Filer",
+    "subtitle": "Faili owo ori re nipase iforowanilenuwo.",
+    "placeholder": "Beere Mai ohunkohun — payslip, PIT, idinku, awon igbese to tele…",
+    "send": "Firanse",
+    "streaming": "Mai n ronu…",
+    "language": "Ede",
+    "emptyHint": "Gbiyanju: \"Mo n gba ₦5,000,000 lodun. Kini PIT mi fun 2026?\""
+  }
+}
