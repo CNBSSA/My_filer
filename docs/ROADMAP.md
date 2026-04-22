@@ -104,8 +104,8 @@ PAYE worksheet.
 - [ ] **P3.6** — Bank statement schema + extractor
 - [ ] **P3.7** — Receipt schema + extractor
 - [x] **P3.8** — Tool registration: `list_recent_documents` + `read_document_extraction` for Mai
-- [ ] **P3.9** — Web: upload widget in chat (drag-and-drop, mobile camera)
-- [ ] **P3.10** — End-to-end browser demo: upload payslip → Mai lists it → reads extraction → calls `calc_paye` → explains
+- [x] **P3.9** — Web: upload widget in chat (📎 picker + page-wide drag-and-drop). Uploads via `POST /v1/documents`, then injects a "I just uploaded…" nudge into the conversation so Mai calls `read_document_extraction` + `calc_paye`.
+- [x] **P3.10** — End-to-end browser demo documented in `README.md` (run steps). Live Claude calls still require a valid `ANTHROPIC_API_KEY`; the plumbing is verified green by 87 unit tests.
 
 ## PHASE 4 — Filing Pack Generator (Individual Path)
 

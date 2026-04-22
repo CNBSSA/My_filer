@@ -1,6 +1,56 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
+export type DocumentKind =
+  | "payslip"
+  | "receipt"
+  | "bank_statement"
+  | "cac_certificate"
+  | "unknown";
+
+export interface UploadedDocument {
+  id: string;
+  kind: DocumentKind;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+  extraction: Record<string, unknown> | null;
+  extraction_error: string | null;
+}
+
+export async function uploadDocument({
+  file,
+  kind,
+  threadId,
+  signal,
+}: {
+  file: File;
+  kind: DocumentKind;
+  threadId?: string | null;
+  signal?: AbortSignal;
+}): Promise<UploadedDocument> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  if (threadId) form.append("thread_id", threadId);
+
+  const response = await fetch(`${API_BASE}/v1/documents`, {
+    method: "POST",
+    body: form,
+    signal,
+  });
+
+  if (!response.ok) {
+    const detail = await response
+      .json()
+      .then((b) => b.detail ?? response.statusText)
+      .catch(() => response.statusText);
+    throw new Error(`upload failed (${response.status}): ${detail}`);
+  }
+  return response.json();
+}
+
 export type ChatStreamEvent = "start" | "delta" | "done";
 
 export interface ChatStreamChunk {
