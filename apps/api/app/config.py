@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 
+    # Comma-separated list of origins the web app is served from.
+    # Example: "https://mai-filer-web.up.railway.app,http://localhost:3000"
+    cors_allow_origins: str = "http://localhost:3000"
+
+    def allowed_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:

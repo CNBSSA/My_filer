@@ -10,9 +10,9 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Make `apps/api` importable so we can reuse the app's Base + models.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-API_ROOT = REPO_ROOT / "apps" / "api"
+# `apps/api/` is the service root — make it importable so env.py can pull in
+# the app's Base + models.
+API_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(API_ROOT))
 
 from app.config import get_settings  # noqa: E402

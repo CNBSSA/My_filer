@@ -5,6 +5,7 @@ wire the chat, documents, filing, identity, and gateway routers.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.chat import router as chat_router
@@ -22,6 +23,14 @@ app = FastAPI(
         "compliance, and NRS filing."
     ),
     version=__version__,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(chat_router)

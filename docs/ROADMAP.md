@@ -169,15 +169,47 @@ Goal: verified individual identity with NDPR-compliant consent.
 
 ## PHASE 9 — SME (CIT / VAT / MBS) — **v2**
 
-Guarded by ADR-0002. Full plan here is a placeholder; the phase will get its
-own decision supplement before execution begins.
+Guarded by ADR-0002. The post-deployment expansion track. Execution begins
+when the owner supplies the regulatory data listed below.
 
-- [ ] **P9.1** — CIT bands + calculator (needs ADR + owner input)
-- [ ] **P9.2** — WHT by transaction class (needs ADR + owner input)
-- [ ] **P9.3** — UBL 3.0 + 55-field schema (needs owner-provided field list)
-- [ ] **P9.4** — MBS 24h sync Celery pipeline
+### Data the owner must supply first
+
+- 2026 CIT bands by turnover tier (small / medium / large cutoffs + rates).
+- 2026 WHT rates per transaction class (rent, professional, dividend, etc.).
+- The NRS UBL 3.0 **55 mandatory fields** list across 8 sections.
+- NRS criteria for "medium/large" taxpayer (decides who the 24-hour MBS
+  sync applies to).
+- Preferred Access Point Provider partner (DigiTax / UsawaConnect / …).
+
+### Implementation tasks (post-data)
+
+- [ ] **P9.1** — CIT bands + calculator + tests
+- [ ] **P9.2** — WHT by transaction class + tests
+- [ ] **P9.3** — UBL 3.0 + 55-field schema + validator
+- [ ] **P9.4** — MBS 24h sync Celery pipeline + backoff
 - [ ] **P9.5** — E-invoice composer UI with QR + CSID rendering
-- [ ] **P9.6** — CAC verification flow (reuses Phase 5 adapters)
+- [ ] **P9.6** — CAC verification flow (reuses Phase 5 aggregator adapters)
+- [ ] **P9.7** — SME filing pack (UBL 3.0 JSON + branded PDF variant)
+- [ ] **P9.8** — Mai Filer tools: `calc_cit`, `compose_einvoice`, `submit_mbs`
+- [ ] **P9.9** — Landing + chat UI: "I'm filing for a business" entry path
+
+## PHASE 11 — NGO / Tax-Exempt Bodies — **v2+**
+
+Not on the current roadmap until the owner supplies:
+
+- NRS tax treatment for registered NGOs (income-tax exemption criteria,
+  WHT remittance obligations on payments made by NGOs).
+- NGO-specific return forms / cycles (annual report, WHT schedule, etc.).
+- CAC part-C registration handling (distinct from regular CAC RC).
+
+### Implementation tasks (post-data)
+
+- [ ] **P11.1** — NGO taxpayer schema (CAC Part-C, exemption reference)
+- [ ] **P11.2** — WHT remittance schedule calculator
+- [ ] **P11.3** — Annual NGO return pack (PDF + JSON)
+- [ ] **P11.4** — Audit Shield NGO-specific checks (proper exemption status,
+      WHT collected matches remitted, etc.)
+- [ ] **P11.5** — UI path "I am filing for an NGO"
 
 ## PHASE 10 — Polish
 

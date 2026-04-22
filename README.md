@@ -5,6 +5,18 @@ product — conversation drives filing.
 
 **Start here** → [`CLAUDE.md`](./CLAUDE.md)
 
+## Current coverage
+
+| Taxpayer class | Status |
+|---|---|
+| Individuals (PAYE / PIT 2026) | ✅ live |
+| Sole proprietors / freelancers | ✅ via the PIT path (income kind = `self_employment`) |
+| Companies (CIT / VAT / MBS e-invoicing) | ❌ Phase 9 — blocked on 2026 CIT bands, WHT rates, and the 55-field UBL 3.0 list |
+| NGOs / tax-exempt bodies | ❌ not yet modelled — needs owner input on NRS exemption + reporting |
+
+See `docs/DECISIONS.md` (ADR-0002) for the locked v1 scope and
+`docs/DEPLOYMENT.md §7` for how to expand coverage.
+
 ## Docs
 
 - [`docs/MASTER_PLAN.md`](./docs/MASTER_PLAN.md) — the locked one-page contract
@@ -13,25 +25,26 @@ product — conversation drives filing.
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — system layout
 - [`docs/COMPLIANCE.md`](./docs/COMPLIANCE.md) — NDPR, NITDA, NTAA, UBL 3.0
 - [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs (plan, v1 scope, Dojah, multilingual)
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — Railway setup, env vars, release flow
 - [`docs/ROADMAP.md`](./docs/ROADMAP.md) — phased, smallest-task breakdown
 
 ## Repo layout
 
 ```
-apps/api/        FastAPI backend + Claude orchestration + tax services
+apps/api/        FastAPI backend + Claude orchestration + tax services + alembic
 apps/web/        Next.js 16 + TS + Tailwind chat-first UI
 packages/shared/ Shared TS types (mirrors Pydantic)
-infra/           Docker, Alembic, operational scripts
+infra/           Shared dev infrastructure (docker-compose, scripts)
 docs/            Locked project documents (read these first)
 ```
 
-## Run the Phase 3 demo end-to-end
+## Run locally
 
-You need two terminals and a `ANTHROPIC_API_KEY` for the live Claude calls.
+You need `ANTHROPIC_API_KEY` for the live Claude calls.
 
 ```bash
 cp .env.example .env
-# edit .env — set ANTHROPIC_API_KEY, leave the SQLite URL below for quick dev
+# edit .env — set ANTHROPIC_API_KEY; for quick local dev you can use SQLite:
 echo 'DATABASE_URL=sqlite:///./mai_filer.db' >> .env
 ```
 
@@ -39,9 +52,9 @@ echo 'DATABASE_URL=sqlite:///./mai_filer.db' >> .env
 
 ```bash
 cd apps/api
-pip install -e ".[dev]"               # or: uv sync
-alembic upgrade head                  # runs migrations 0001 + 0002
-uvicorn app.main:app --reload         # http://localhost:8000
+pip install -e ".[dev]"              # or: uv sync
+alembic upgrade head                 # applies migrations 0001 → 0003
+uvicorn app.main:app --reload        # http://localhost:8000
 ```
 
 **Terminal 2 — web**
@@ -49,33 +62,38 @@ uvicorn app.main:app --reload         # http://localhost:8000
 ```bash
 cd apps/web
 npm install
-npm run dev                           # http://localhost:3000
+npm run dev                          # http://localhost:3000
 ```
 
-Then in the browser:
+### End-to-end demo flow
 
 1. Open <http://localhost:3000/chat>.
-2. Pick a language from the header dropdown (English / Hausa / Yorùbá / Igbo / Pidgin).
+2. Pick a language (English / Hausa / Yorùbá / Igbo / Pidgin).
 3. Say "hi Mai" — she introduces herself in-role.
-4. Drag a payslip (PDF or image) onto the page, **or** click the 📎 button and pick one.
-5. The UI uploads to `POST /v1/documents`, Claude Sonnet 4.6 Vision extracts the
-   payslip via a forced tool call, and the structured extraction is attached to
-   the next chat turn ("I just uploaded… please read it and walk me through…").
-6. Mai calls `read_document_extraction`, then `calc_paye` on the extracted
-   figures, then explains the 2026 PAYE band-by-band in your chosen language.
+4. Drag a payslip (PDF or image) onto the page, **or** click 📎 and pick one.
+5. The UI posts to `POST /v1/documents`; Claude Sonnet 4.6 Vision extracts
+   the structured data; Mai is auto-told about the new document.
+6. Mai calls `read_document_extraction`, then `calc_paye`, then explains the
+   2026 PAYE band-by-band in your language.
+7. When you're ready, Mai creates a `Filing` via `POST /v1/filings`, runs
+   the Audit Shield, and — if green — generates the NRS-ready pack.
+8. Visit `http://localhost:3000/filings/<filing-id>` to review findings
+   and download the branded PDF + canonical JSON.
 
-### Filing pack (Phase 4)
+## Deploy on Railway
 
-Once you have a complete return (NIN + name + at least one income source +
-declaration affirmed), you can generate a downloadable pack:
+See [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for the full setup. Short
+version: two services (`apps/api` and `apps/web`) + the Postgres plugin,
+each auto-detected by Nixpacks from its `railway.json`. Migrations run on
+every release via `preDeployCommand`.
 
-- `POST /v1/filings` with a PITReturn body to create a filing.
-- Mai Filer calls `audit_filing` (tool), then `prepare_filing_pack`, then
-  surfaces the download URLs.
-- Visit `http://localhost:3000/filings/<filing-id>` to review the Audit
-  Shield report (green / yellow / red with itemized findings) and download
-  the branded PDF or canonical JSON pack.
+**Data residency note** — Railway's default regions are outside Nigeria.
+Before accepting real taxpayer data, move Postgres + object storage to a
+Nigerian host (Galaxy Backbone / Rack Centre). This is NITDA-mandatory,
+not a nicety.
 
 ## Branch policy
 
-All development on `claude/mai-filer-bot-aQHn0` per project instructions.
+- `main` — what Railway deploys.
+- `claude/mai-filer-bot-aQHn0` — active feature branch. All new work pushes
+  here first; PRs bring it into `main`.
