@@ -96,16 +96,16 @@ legal reliefs.
 Goal: upload a Nigerian payslip, Mai extracts structured data, pre-fills the
 PAYE worksheet.
 
-- [ ] **P3.1** — `POST /v1/documents` multipart endpoint
-- [ ] **P3.2** — `StorageAdapter` interface + `MinioStorage` dev impl
-- [ ] **P3.3** — `documents/extractor.py` — Claude Sonnet 4.6 Vision wrapper with structured-output enforcement
-- [ ] **P3.4** — Payslip Pydantic schema: gross, CRA, pension, NHIS, PAYE withheld, period, employer
-- [ ] **P3.5** — Payslip extraction test with a fixture PDF / image
+- [x] **P3.1** — `POST /v1/documents` multipart endpoint + GET single + list
+- [x] **P3.2** — `StorageAdapter` interface + `InMemoryStorage` + `LocalDiskStorage` (MinIO/S3 adapter deferred to infra phase)
+- [x] **P3.3** — `documents/extractor.py` — Claude Sonnet 4.6 Vision wrapper with forced tool-use for structured output
+- [x] **P3.4** — Payslip Pydantic schema + `DocumentKind` literal + `DocumentRecord` API response
+- [x] **P3.5** — Extractor tests (mocked VisionClient) + endpoint tests (fake extractor, InMemoryStorage)
 - [ ] **P3.6** — Bank statement schema + extractor
 - [ ] **P3.7** — Receipt schema + extractor
-- [ ] **P3.8** — Tool registration: `extract_document(file_id)` for Mai
+- [x] **P3.8** — Tool registration: `list_recent_documents` + `read_document_extraction` for Mai
 - [ ] **P3.9** — Web: upload widget in chat (drag-and-drop, mobile camera)
-- [ ] **P3.10** — End-to-end: upload payslip → Mai acknowledges → PAYE pre-filled
+- [ ] **P3.10** — End-to-end browser demo: upload payslip → Mai lists it → reads extraction → calls `calc_paye` → explains
 
 ## PHASE 4 — Filing Pack Generator (Individual Path)
 

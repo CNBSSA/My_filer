@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable
 
+from app.db.models import Document
+from app.db.session import get_session
 from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
 from app.tax.pit import calculate_pit_2026
@@ -178,6 +180,65 @@ def _run_calc_dev_levy(assessable_profit: float | int | str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Document tools (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+def _run_list_recent_documents(limit: int = 10) -> dict[str, Any]:
+    """List recent uploaded documents with their kind + extraction status.
+
+    Uses a short-lived DB session so the tool stays callable from anywhere
+    (tests override `app.db.session.get_session` via dependency injection;
+    calling `next(get_session())` here respects that override).
+    """
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        rows = (
+            session.query(Document)
+            .order_by(Document.created_at.desc())
+            .limit(max(1, min(limit, 50)))
+            .all()
+        )
+        return {
+            "documents": [
+                {
+                    "id": doc.id,
+                    "kind": doc.kind,
+                    "filename": doc.filename,
+                    "content_type": doc.content_type,
+                    "size_bytes": doc.size_bytes,
+                    "has_extraction": doc.extraction_json is not None,
+                    "extraction_error": doc.extraction_error,
+                    "created_at": doc.created_at.isoformat(),
+                }
+                for doc in rows
+            ]
+        }
+    finally:
+        session_gen.close()
+
+
+def _run_read_document_extraction(document_id: str) -> dict[str, Any]:
+    """Return the structured extraction for a document, if any."""
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        doc = session.get(Document, document_id)
+        if doc is None:
+            return {"error": f"document not found: {document_id}"}
+        return {
+            "id": doc.id,
+            "kind": doc.kind,
+            "filename": doc.filename,
+            "extraction": doc.extraction_json,
+            "extraction_error": doc.extraction_error,
+        }
+    finally:
+        session_gen.close()
+
+
+# ---------------------------------------------------------------------------
 # Tool registry
 # ---------------------------------------------------------------------------
 
@@ -307,6 +368,38 @@ TOOLS: tuple[Tool, ...] = (
             "required": ["assessable_profit"],
         },
         run=_run_calc_dev_levy,
+    ),
+    Tool(
+        name="list_recent_documents",
+        description=(
+            "List the most recently uploaded documents the user has shared. "
+            "Use this when the user refers to a payslip or receipt they just "
+            "uploaded, to find its id before reading its extraction."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}
+            },
+        },
+        run=_run_list_recent_documents,
+    ),
+    Tool(
+        name="read_document_extraction",
+        description=(
+            "Fetch the structured extraction for a specific document by id. "
+            "Returns the fields extracted by the vision pipeline (e.g. for a "
+            "payslip: gross_income, pension, PAYE withheld, etc). Use the "
+            "extraction numbers as inputs to calc_paye."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "document_id": {"type": "string", "description": "UUID of the document."}
+            },
+            "required": ["document_id"],
+        },
+        run=_run_read_document_extraction,
     ),
 )
 

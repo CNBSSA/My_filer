@@ -1,4 +1,4 @@
-"""Mai Filer tool registry + orchestrator tool-loop smoke tests (P2.9)."""
+"""Mai Filer tool registry + orchestrator tool-loop smoke tests (P2.9, P3.8)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from app.agents.mai_filer.orchestrator import (
 )
 from app.agents.mai_filer.schemas import ChatRequest
 from app.agents.mai_filer.tools import TOOLS, run_tool, tool_names, tool_schemas
+from app.db.models import Document
 
 
 def test_tool_registry_exposes_expected_tools() -> None:
@@ -25,6 +26,8 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "calc_vat",
         "check_vat_registrable",
         "calc_dev_levy",
+        "list_recent_documents",
+        "read_document_extraction",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -201,6 +204,57 @@ def test_orchestrator_skips_tool_loop_when_claude_ends_turn_directly() -> None:
     response = orchestrator.chat(ChatRequest(message="Hi Mai", language="en"))
     assert len(client.calls) == 1
     assert response.message.startswith("Hello, I'm Mai Filer.")
+
+
+def test_list_recent_documents_tool_reads_db(db_session, override_db) -> None:
+    """P3.8 — the Mai tool sees documents the user uploaded."""
+    session = db_session
+    session.add(
+        Document(
+            id="doc-1",
+            filename="march.png",
+            content_type="image/png",
+            size_bytes=1000,
+            storage_key="mem/foo",
+            kind="payslip",
+            extraction_json={"gross_income": 420000, "pay_frequency": "monthly"},
+        )
+    )
+    session.commit()
+
+    payload = json.loads(run_tool("list_recent_documents", {"limit": 5}))
+    assert len(payload["documents"]) == 1
+    item = payload["documents"][0]
+    assert item["id"] == "doc-1"
+    assert item["kind"] == "payslip"
+    assert item["has_extraction"] is True
+
+
+def test_read_document_extraction_tool_returns_payload(db_session, override_db) -> None:
+    session = db_session
+    session.add(
+        Document(
+            id="doc-2",
+            filename="march.pdf",
+            content_type="application/pdf",
+            size_bytes=1234,
+            storage_key="mem/bar",
+            kind="payslip",
+            extraction_json={"gross_income": 420000, "pay_frequency": "monthly"},
+        )
+    )
+    session.commit()
+
+    payload = json.loads(run_tool("read_document_extraction", {"document_id": "doc-2"}))
+    assert payload["id"] == "doc-2"
+    assert payload["extraction"]["gross_income"] == 420000
+
+
+def test_read_document_extraction_tool_handles_missing_id(override_db) -> None:
+    payload = json.loads(
+        run_tool("read_document_extraction", {"document_id": "nope"})
+    )
+    assert "error" in payload
 
 
 def test_orchestrator_respects_tool_turn_cap() -> None:

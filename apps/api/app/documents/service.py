@@ -1,0 +1,110 @@
+"""Document service — upload, persist, extract.
+
+v1 does extraction **synchronously** inside the upload endpoint. Phase 6 /
+Celery moves this to a background worker; the service API stays the same.
+
+Privacy note (per COMPLIANCE.md §1): we persist the extracted structured
+data for convenience, but the raw bytes stay only in object storage keyed
+by `storage_key`. Nothing PII-bearing is logged.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from app.db.models import Document
+from app.documents.extractor import VisionExtractor
+from app.documents.schemas import DocumentKind, PayslipExtraction
+from app.documents.storage import StorageAdapter
+
+log = logging.getLogger("mai_filer.documents")
+
+
+# Content types Claude Vision accepts that we allow for uploads.
+ALLOWED_CONTENT_TYPES: frozenset[str] = frozenset(
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "application/pdf",
+    }
+)
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+class UnsupportedContentTypeError(ValueError):
+    pass
+
+
+class UploadTooLargeError(ValueError):
+    pass
+
+
+def upload_and_extract(
+    *,
+    session: Session,
+    storage: StorageAdapter,
+    extractor: VisionExtractor,
+    file_bytes: bytes,
+    filename: str,
+    content_type: str,
+    kind: DocumentKind,
+    user_id: str | None = None,
+    thread_id: str | None = None,
+    run_extraction: bool = True,
+) -> Document:
+    """Persist the upload + (optionally) run Vision extraction synchronously.
+
+    Returns the committed `Document` row; the caller is responsible for
+    refreshing / serializing it.
+    """
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise UnsupportedContentTypeError(
+            f"unsupported content type: {content_type}. "
+            f"Allowed: {sorted(ALLOWED_CONTENT_TYPES)}"
+        )
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise UploadTooLargeError(
+            f"upload is {len(file_bytes)} bytes; limit is {MAX_UPLOAD_BYTES}"
+        )
+
+    blob = storage.put(file_bytes, content_type=content_type, filename=filename)
+
+    document = Document(
+        user_id=user_id,
+        thread_id=thread_id,
+        filename=filename,
+        content_type=content_type,
+        size_bytes=blob.size_bytes,
+        storage_key=blob.key,
+        kind=kind,
+    )
+    session.add(document)
+    session.flush()
+
+    if run_extraction and kind == "payslip":
+        try:
+            extraction, _ = extractor.extract_payslip(
+                file_bytes=file_bytes,
+                content_type=content_type,
+                filename=filename,
+            )
+            document.extraction_json = extraction.model_dump(mode="json")
+            document.extracted_at = datetime.now(timezone.utc)
+        except Exception as exc:  # surface; Mai can see the error and ask user to retry
+            log.warning("payslip extraction failed: %s", exc)
+            document.extraction_error = str(exc)
+
+    session.commit()
+    session.refresh(document)
+    return document
+
+
+def _extraction_from_payslip_model(extraction: PayslipExtraction) -> dict:
+    """Helper for tests — round-trip through JSON so it matches storage."""
+    return extraction.model_dump(mode="json")

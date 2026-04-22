@@ -52,8 +52,16 @@ def db_session(db_session_factory: sessionmaker[Session]) -> Generator[Session, 
 
 
 @pytest.fixture
-def override_db(db_session_factory: sessionmaker[Session]) -> Generator[None, None, None]:
-    """Override the FastAPI DB dependency for endpoint tests."""
+def override_db(
+    db_session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[None, None, None]:
+    """Override the DB dependency *and* the module-level get_session.
+
+    The FastAPI override handles endpoint tests; the module-level monkey-patch
+    handles direct callers like Mai Filer's document tools, which use
+    `next(get_session())` outside the request lifecycle.
+    """
 
     def _get_session() -> Generator[Session, None, None]:
         session = db_session_factory()
@@ -63,6 +71,11 @@ def override_db(db_session_factory: sessionmaker[Session]) -> Generator[None, No
             session.close()
 
     app.dependency_overrides[real_get_session] = _get_session
+    monkeypatch.setattr("app.db.session.get_session", _get_session)
+    # Patch the re-bound name inside modules that imported get_session directly.
+    monkeypatch.setattr(
+        "app.agents.mai_filer.tools.get_session", _get_session, raising=False
+    )
     try:
         yield
     finally:
