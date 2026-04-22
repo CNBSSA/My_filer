@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.models import Filing
@@ -29,6 +30,7 @@ from app.filing.service import (
     load_pack_bytes,
     update_filing_return,
 )
+from app.gateway.service import SubmissionConfigError, submit_filing_to_nrs
 
 router = APIRouter(prefix="/v1/filings", tags=["filings"])
 
@@ -47,9 +49,32 @@ def _filing_to_dict(filing: Filing) -> dict[str, Any]:
         "audit": filing.audit_json,
         "pack_ready": bool(filing.pack_pdf_key and filing.pack_json_key),
         "finalized_at": filing.finalized_at.isoformat() if filing.finalized_at else None,
+        "submission": {
+            "status": filing.submission_status,
+            "irn": filing.nrs_irn,
+            "csid": filing.nrs_csid,
+            "qr_payload": filing.nrs_qr_payload,
+            "error": (
+                None
+                if not filing.nrs_submission_error
+                else _safe_json(filing.nrs_submission_error)
+            ),
+            "submitted_at": (
+                filing.nrs_submitted_at.isoformat() if filing.nrs_submitted_at else None
+            ),
+        },
         "created_at": filing.created_at.isoformat(),
         "updated_at": filing.updated_at.isoformat(),
     }
+
+
+def _safe_json(value: str) -> Any:
+    import json
+
+    try:
+        return json.loads(value)
+    except Exception:
+        return value
 
 
 def _load(session: Session, filing_id: str) -> Filing:
@@ -132,6 +157,36 @@ async def download_pdf(
         media_type=content_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+class SubmitRequest(BaseModel):
+    language: str = "en"
+
+
+@router.post("/{filing_id}/submit")
+async def submit_to_nrs(
+    filing_id: str,
+    body: SubmitRequest | None = None,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Submit a finalized filing to NRS.
+
+    If NRS credentials are not configured (e.g. local dev, Railway preview
+    without a real sandbox), the service runs a deterministic simulated
+    submission and marks the outcome with `simulated=true`. The UI should
+    render that status distinctly from a real `accepted`.
+    """
+    filing = _load(session, filing_id)
+    language = (body or SubmitRequest()).language
+
+    try:
+        outcome = submit_filing_to_nrs(
+            session=session, filing=filing, language=language
+        )
+    except SubmissionConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    return {"filing": _filing_to_dict(filing), "submission": outcome.to_dict()}
 
 
 @router.get("/{filing_id}/pack.json")

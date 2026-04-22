@@ -136,6 +136,43 @@ def test_pack_build_refused_when_audit_red() -> None:
         app.dependency_overrides.clear()
 
 
+def test_submit_to_nrs_returns_simulated_when_no_creds() -> None:
+    """P6.7 — end-to-end smoke with no NRS credentials configured."""
+    _override_storage()
+    try:
+        client = TestClient(app)
+        filing_id = client.post("/v1/filings", json=_payload()).json()["id"]
+        client.post(f"/v1/filings/{filing_id}/audit")
+        resp = client.post(f"/v1/filings/{filing_id}/submit", json={"language": "en"})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        sub = body["submission"]
+        assert sub["status"] == "simulated"
+        assert sub["simulated"] is True
+        assert sub["irn"].startswith("SIM-IRN-")
+        assert sub["csid"].startswith("SIM-CSID-")
+        # Filing row also reflects the submission.
+        assert body["filing"]["submission"]["status"] == "simulated"
+        assert body["filing"]["submission"]["irn"] == sub["irn"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_submit_refused_when_audit_red() -> None:
+    _override_storage()
+    try:
+        client = TestClient(app)
+        filing_id = client.post(
+            "/v1/filings", json=_payload(declaration=False)
+        ).json()["id"]
+        client.post(f"/v1/filings/{filing_id}/audit")  # red
+        resp = client.post(f"/v1/filings/{filing_id}/submit")
+        assert resp.status_code == 409
+        assert "red" in resp.json()["detail"].lower()
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_update_resets_audit_and_pack_state() -> None:
     _override_storage()
     try:

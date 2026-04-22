@@ -126,6 +126,18 @@ class Filing(Base):
     finalized_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # NRS submission receipt (Phase 6)
+    submission_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="not_submitted"
+    )
+    # "not_submitted" | "simulated" | "accepted" | "rejected" | "error"
+    nrs_irn: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    nrs_csid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    nrs_qr_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nrs_submission_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nrs_submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

@@ -23,6 +23,7 @@ from app.db.models import Document, Filing
 from app.db.session import get_session
 from app.documents.storage import get_default_storage
 from app.filing.service import PackNotReadyError, audit_filing, generate_pack
+from app.gateway.service import SubmissionConfigError, submit_filing_to_nrs
 from app.identity.base import AggregatorError
 from app.identity.factory import build_identity_service
 from app.identity.service import ConsentRequiredError
@@ -310,6 +311,27 @@ def _run_prepare_filing_pack(filing_id: str) -> dict[str, Any]:
         session_gen.close()
 
 
+def _run_submit_to_nrs(filing_id: str, language: str = "en") -> dict[str, Any]:
+    """Submit a finalized filing to NRS (or to the simulation path if
+    credentials are missing). Never bypass the Audit Shield — the service
+    refuses red / pending audits."""
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        filing = session.get(Filing, filing_id)
+        if filing is None:
+            return {"error": f"filing not found: {filing_id}"}
+        try:
+            outcome = submit_filing_to_nrs(
+                session=session, filing=filing, language=language
+            )
+        except SubmissionConfigError as exc:
+            return {"error": str(exc), "reason": "not_ready_for_submission"}
+        return outcome.to_dict()
+    finally:
+        session_gen.close()
+
+
 def _run_verify_identity(
     nin: str,
     consent: bool,
@@ -585,6 +607,33 @@ TOOLS: tuple[Tool, ...] = (
             },
         },
         run=_run_list_recent_filings,
+    ),
+    Tool(
+        name="submit_to_nrs",
+        description=(
+            "Submit a finalized filing to the Nigeria Revenue Service (NRS) "
+            "via the signed HMAC-SHA256 gateway. Audit Shield must be green "
+            "or yellow — the service refuses red. If NRS credentials aren't "
+            "configured in the environment, the submission is *simulated* "
+            "deterministically and the response will include `simulated: "
+            "true` — surface this to the user so they know they're looking "
+            "at a preview, not a real acknowledgement. On success you get "
+            "an IRN (invoice reference number), CSID (cryptographic stamp), "
+            "and QR payload; tell the user all three."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "filing_id": {"type": "string", "description": "UUID of the filing."},
+                "language": {
+                    "type": "string",
+                    "description": "Language for error messages. Defaults to 'en'.",
+                    "default": "en",
+                },
+            },
+            "required": ["filing_id"],
+        },
+        run=_run_submit_to_nrs,
     ),
     Tool(
         name="verify_identity",

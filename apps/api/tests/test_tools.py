@@ -33,6 +33,7 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "prepare_filing_pack",
         "list_recent_filings",
         "verify_identity",
+        "submit_to_nrs",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -395,6 +396,40 @@ def test_verify_identity_tool_refuses_without_consent(override_db) -> None:
     )
     assert "error" in payload
     assert payload.get("reason") == "consent_required"
+
+
+def test_submit_to_nrs_tool_simulates_without_creds(db_session, override_db) -> None:
+    """P6 — submit_to_nrs tool returns a simulated outcome when NRS env
+    credentials are absent (default in tests)."""
+    set_default_storage(InMemoryStorage())
+    filing = Filing(
+        id="f-nrs-1",
+        tax_year=2026,
+        return_json=_green_return_dict(),
+        audit_status="green",
+    )
+    db_session.add(filing)
+    db_session.commit()
+
+    payload = json.loads(run_tool("submit_to_nrs", {"filing_id": "f-nrs-1"}))
+    assert payload["status"] == "simulated"
+    assert payload["simulated"] is True
+    assert payload["irn"].startswith("SIM-IRN-")
+
+
+def test_submit_to_nrs_tool_refuses_not_ready(db_session, override_db) -> None:
+    filing = Filing(
+        id="f-nrs-2",
+        tax_year=2026,
+        return_json=_green_return_dict(),
+        audit_status="pending",  # not audited yet
+    )
+    db_session.add(filing)
+    db_session.commit()
+
+    payload = json.loads(run_tool("submit_to_nrs", {"filing_id": "f-nrs-2"}))
+    assert "error" in payload
+    assert payload["reason"] == "not_ready_for_submission"
 
 
 def test_list_recent_filings_tool(db_session, override_db) -> None:

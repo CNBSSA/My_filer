@@ -138,16 +138,17 @@ Goal: verified individual identity with NDPR-compliant consent.
 - [x] **P5.10** — Web: `/identity` page with language selector, 11-digit NIN input, declared-name field, explicit consent checkbox rendered in all 5 v1 languages, and a colour-coded result card (green verified / rose not-verified, with strict / fuzzy / mismatch name-match badge). Landing page links to it.
 - [x] **P5.11** — End-to-end demo path documented in README: language → NIN → consent → Dojah → vault + consent-log → name match → continue to chat. Without Dojah creds the adapter still runs and surfaces a clean `aggregator_unavailable` reason.
 
-## PHASE 6 — NRS Sandbox Handshake (Live Path Prep)
+## PHASE 6 — NRS Sandbox Handshake (Live Path Prep) ✅ SYNC PATH COMPLETE
 
-- [ ] **P6.1** — `gateway/signing.py` — HMAC-SHA256 signer with unit tests
-- [ ] **P6.2** — Timestamp util (ISO-20022) + replay-window guard
-- [ ] **P6.3** — `gateway/nrs_client.py` — request envelope
-- [ ] **P6.4** — Celery setup + worker Docker service
-- [ ] **P6.5** — `submit_filing` task with backoff (2, 4, 8, 16 s)
-- [ ] **P6.6** — Persist `IRN`, `CSID`, `QR` on success
-- [ ] **P6.7** — Sandbox smoke test against a mock NRS endpoint
-- [ ] **P6.8** — NRS error-code translator → plain-English, localized, Mai-friendly messages
+- [x] **P6.1** — `gateway/signing.py` — HMAC-SHA256 signer + `hmac.compare_digest`-based `verify_signature`; rejects empty secrets.
+- [x] **P6.2** — `gateway/timestamps.py` — ISO-20022 `iso_20022_now()`, `parse_iso_20022()`, and a 5-minute `within_replay_window` guard for inbound callbacks.
+- [x] **P6.3** — `gateway/client.py` — `NRSClient` signs + posts, parses `NRSResponse` / `NRSRejection`, retries transport + 5xx with `(2, 4, 8, 16s)` backoff; missing credentials raise `NRSAuthError` for the service to catch and drop to simulation.
+- [ ] **P6.4** — Celery setup + worker Docker service (**deferred** — awaiting Redis infra. The sync retry shape in `NRSClient` is intentionally a mirror of the eventual Celery task, so the move is a code-relocation, not a rewrite).
+- [ ] **P6.5** — `submit_filing` task with backoff (deferred with P6.4).
+- [x] **P6.6** — `Filing.nrs_irn`, `nrs_csid`, `nrs_qr_payload`, `submission_status`, `nrs_submission_error`, `nrs_submitted_at` via alembic `0005_filing_submission`. Migration chain `0001 → 0005` verified on SQLite.
+- [x] **P6.7** — Sandbox smoke path — `POST /v1/filings/{id}/submit` exercised end-to-end against a mocked `HttpClient` (`tests/test_gateway_client.py` + `test_gateway_service.py` + `test_filings_endpoint.py`). With no NRS creds configured the service generates a deterministic `SIM-IRN-*` / `SIM-CSID-*` / `mai-filer://sim/...` receipt so the full UI loop still renders.
+- [x] **P6.8** — `gateway/errors.py` — 8-code catalogue (AUTH, SIGNATURE, REPLAY, NIN-NOT-FOUND, PAYLOAD, COMPUTATION, RATE-LIMIT, UPSTREAM-DOWN) with per-code severity (`retryable` / `user_fix` / `fatal`) and per-language messages; English is the fallback.
+- [x] **P6.9** — Mai Filer tool `submit_to_nrs(filing_id, language)` — 13 tools total in the registry.
 
 ## PHASE 7 — Rev360 Live + Accreditation
 

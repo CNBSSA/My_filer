@@ -115,6 +115,34 @@ just see `verified=false` with `aggregator_unavailable` as the reason.
 Set `DOJAH_API_KEY` and `DOJAH_APP_ID` in `.env` to exercise the real
 endpoint.
 
+### NRS submission (Phase 6)
+
+After Audit Shield is green (or yellow), Mai can submit the pack to
+NRS via the signed HMAC-SHA256 gateway.
+
+- `POST /v1/filings/{id}/submit` — the backend rebuilds the canonical
+  pack, signs with `HMAC_SHA256(payload + timestamp, NRS_CLIENT_SECRET)`,
+  sets `X-API-Key` / `X-API-Business-Id` / `X-API-Timestamp` /
+  `X-API-Signature` headers, POSTs to `$NRS_BASE_URL/efiling/pit/submit`.
+  - 2xx → persists `IRN`, `CSID`, `qr_payload` on the `Filing` row and
+    sets `submission_status=accepted`.
+  - 4xx → `submission_status=rejected`; error is run through the
+    translator and stored with the vendor raw message.
+  - 5xx / network → retries `2s → 4s → 8s → 16s`; if still failing,
+    `submission_status=error`.
+- **Simulation mode** — when `NRS_CLIENT_ID` / `NRS_CLIENT_SECRET` /
+  `NRS_BUSINESS_ID` aren't configured (local dev, Railway preview), the
+  service generates a deterministic `SIM-IRN-*` / `SIM-CSID-*` /
+  `mai-filer://sim/...` receipt and marks `submission_status=simulated`.
+  The UI + Mai tool clearly label the preview so nobody mistakes it for
+  a real NRS acceptance.
+- From chat, Mai calls her `submit_to_nrs` tool, which returns the same
+  payload (including `simulated: true` when applicable) so she can
+  communicate the status in the user's language.
+- Celery-backed async submission (`P6.4/P6.5`) is deferred until the
+  Redis infra is in place; the sync retry shape matches the eventual
+  task so the move is a code-relocation.
+
 ## Deploy on Railway
 
 See [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for the full setup. Short
