@@ -12,5 +12,24 @@
     "streaming": "Mai tana tunani…",
     "language": "Harshe",
     "emptyHint": "Gwada: \"Ina samun ₦5,000,000 a shekara. Menene PIT na 2026?\""
+  },
+  "identity": {
+    "title": "Tabbatar da wanene kai",
+    "subtitle": "Muna duba NIN dinka tare da wani ma'aikaci mai lasisi kafin a shirya kowane fayil.",
+    "ninLabel": "Lambar Shaidar Kasa (NIN)",
+    "ninHelper": "Lambobi 11. Ba ma adana NIN dinka a sarari — kawai kwafi mai kariya tare da hash.",
+    "nameLabel": "Suna cikakke (yadda kake so ya kasance a rubuce)",
+    "nameHelper": "Muna kwatanta shi da rikodin NIN kuma muna nuna duk rashin daidaito don ka duba.",
+    "consentTitle": "Izini",
+    "consentBody": "Na yarda Mai Filer ta duba rikodin NIMC na wannan NIN don tallafawa biyan harajina. Na fahimci cewa NIN dina za a adana shi da kariya kuma za a sanya rikodin izini.",
+    "consentCheckbox": "Na yarda kuma na bayar da izini.",
+    "submit": "Tabbatar da NIN",
+    "submitting": "Ana tabbatarwa…",
+    "resultVerified": "An tabbatar da NIN",
+    "resultNotVerified": "Ba mu iya tabbatar da wannan NIN ba",
+    "nameMatchStrict": "Sunan ya yi daidai da rikodin NIN daidai.",
+    "nameMatchFuzzy": "Sunan yana kusa da rikodin NIN.",
+    "nameMatchMismatch": "Sunan ba ya yi daidai da rikodin NIN ba. Sake duba kafin ka aika.",
+    "backToChat": "Ci gaba zuwa hira"
   }
 }

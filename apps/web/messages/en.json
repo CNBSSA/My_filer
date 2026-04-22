@@ -12,5 +12,24 @@
     "streaming": "Mai is thinking…",
     "language": "Language",
     "emptyHint": "Try: \"I earn ₦5,000,000 a year. What is my PIT for 2026?\""
+  },
+  "identity": {
+    "title": "Verify your identity",
+    "subtitle": "We check your NIN with a licensed aggregator before preparing any filing.",
+    "ninLabel": "National Identification Number (NIN)",
+    "ninHelper": "11 digits. We never store your raw NIN — only an encrypted copy keyed by a hash.",
+    "nameLabel": "Full name (as you'd like it on the return)",
+    "nameHelper": "We compare this against the NIN record and flag any mismatch for you to review.",
+    "consentTitle": "Consent",
+    "consentBody": "I consent to Mai Filer querying the NIMC record for this NIN to support my tax filing. I understand my NIN will be encrypted at rest and that an audit record of this consent will be stored.",
+    "consentCheckbox": "I agree and grant consent.",
+    "submit": "Verify NIN",
+    "submitting": "Verifying…",
+    "resultVerified": "NIN verified",
+    "resultNotVerified": "We could not verify this NIN",
+    "nameMatchStrict": "The name matches the NIN record exactly.",
+    "nameMatchFuzzy": "The name is a close match to the NIN record.",
+    "nameMatchMismatch": "The name does not match the NIN record. Double-check before filing.",
+    "backToChat": "Continue to chat"
   }
 }

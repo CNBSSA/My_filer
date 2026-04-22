@@ -62,7 +62,7 @@ echo 'DATABASE_URL=sqlite:///./mai_filer.db' >> .env
 ```bash
 cd apps/api
 pip install -e ".[dev]"              # or: uv sync
-alembic upgrade head                 # applies migrations 0001 → 0003
+alembic upgrade head                 # applies migrations 0001 → 0004
 uvicorn app.main:app --reload        # http://localhost:8000
 ```
 
@@ -88,6 +88,32 @@ npm run dev                          # http://localhost:3000
    the Audit Shield, and — if green — generates the NRS-ready pack.
 8. Visit `http://localhost:3000/filings/<filing-id>` to review findings
    and download the branded PDF + canonical JSON.
+
+### Identity verification (Phase 5)
+
+Before any real filing, verify the NIN against the NIMC record via a
+licensed aggregator (**Dojah** by default — ADR-0003).
+
+- Visit <http://localhost:3000/identity>. Pick a language, type the
+  11-digit NIN, optionally declare the name on the return, tick the
+  consent checkbox, and submit.
+- The UI posts to `POST /v1/identity/verify`, which:
+  1. Rejects anything without `consent=true` (NDPR / NDPC).
+  2. HMAC-hashes the NIN (salt = `NIN_HASH_SALT`) and calls Dojah.
+  3. Retries transport failures with `2s → 4s → 8s → 16s` backoff for
+     the NIN-TIN sync window (KNOWLEDGE_BASE §10); clean vendor
+     rejections do NOT consume retries.
+  4. On a valid record, Fernet-encrypts the raw NIN (key = `NIN_VAULT_KEY`)
+     and upserts `identity_records`.
+  5. Runs strict + fuzzy name-match against your declared name.
+  6. Appends an immutable `consent_log` row regardless of outcome.
+- From chat, Mai calls the same pipeline via her `verify_identity` tool
+  — she refuses any NIN query without the user's explicit yes.
+
+Local dev without Dojah credentials: the adapter still runs, you'll
+just see `verified=false` with `aggregator_unavailable` as the reason.
+Set `DOJAH_API_KEY` and `DOJAH_APP_ID` in `.env` to exercise the real
+endpoint.
 
 ## Deploy on Railway
 

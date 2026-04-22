@@ -19,12 +19,20 @@ export default function Home() {
         </h2>
         <p className="max-w-2xl leading-7">{t.aboutBody}</p>
       </div>
-      <Link
-        href="/chat"
-        className="mt-4 inline-flex items-center rounded-full bg-zinc-900 px-6 py-3 text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-      >
-        {t.startChat} →
-      </Link>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link
+          href="/chat"
+          className="inline-flex items-center rounded-full bg-zinc-900 px-6 py-3 text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+        >
+          {t.startChat} →
+        </Link>
+        <Link
+          href="/identity"
+          className="inline-flex items-center rounded-full border border-zinc-300 px-6 py-3 text-zinc-900 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          {t.identity.title} →
+        </Link>
+      </div>
     </main>
   );
 }

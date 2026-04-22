@@ -135,8 +135,8 @@ Goal: verified individual identity with NDPR-compliant consent.
 - [x] **P5.7** — `consent_log` + `identity_records` tables; alembic `0004_identity_consent` verified on SQLite
 - [x] **P5.8** — `identity/name_match.py` — `strict_match` + `fuzzy_match` tolerant of middle-name order, accents (NFKD + strip combining), 1-char typos, punctuation
 - [x] **P5.9** — Mai tool: `verify_identity(nin, consent, declared_name, purpose)` — 12 tools total in the registry now
-- [ ] **P5.10** — Web: NIN capture UI with explicit consent checkbox rendered in the user's selected Nigerian language
-- [ ] **P5.11** — End-to-end: user enters NIN, consent captured, Mai verifies, filing proceeds
+- [x] **P5.10** — Web: `/identity` page with language selector, 11-digit NIN input, declared-name field, explicit consent checkbox rendered in all 5 v1 languages, and a colour-coded result card (green verified / rose not-verified, with strict / fuzzy / mismatch name-match badge). Landing page links to it.
+- [x] **P5.11** — End-to-end demo path documented in README: language → NIN → consent → Dojah → vault + consent-log → name match → continue to chat. Without Dojah creds the adapter still runs and surfaces a clean `aggregator_unavailable` reason.
 
 ## PHASE 6 — NRS Sandbox Handshake (Live Path Prep)
 

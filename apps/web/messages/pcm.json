@@ -12,5 +12,24 @@
     "streaming": "Mai dey think…",
     "language": "Language",
     "emptyHint": "Try: \"I dey earn ₦5,000,000 every year. Wetin be my PIT for 2026?\""
+  },
+  "identity": {
+    "title": "Confirm say na you",
+    "subtitle": "We go check your NIN with licensed aggregator before we prepare any file.",
+    "ninLabel": "National Identification Number (NIN)",
+    "ninHelper": "Na 11 digits. We no dey keep your raw NIN — na only encrypted copy wey we hash.",
+    "nameLabel": "Full name (the way you want am for the return)",
+    "nameHelper": "We go match am with the NIN record and show you if any name no gel.",
+    "consentTitle": "Consent",
+    "consentBody": "I gree make Mai Filer check the NIMC record for this NIN to help my tax file. I sabi say my NIN go dey encrypted and say audit record for this consent go dey kept.",
+    "consentCheckbox": "I gree give consent.",
+    "submit": "Verify NIN",
+    "submitting": "Dey verify…",
+    "resultVerified": "NIN don verify",
+    "resultNotVerified": "We no fit verify this NIN",
+    "nameMatchStrict": "The name correspond with NIN record well-well.",
+    "nameMatchFuzzy": "The name close to the NIN record.",
+    "nameMatchMismatch": "The name no match with NIN record. Check am well before you file.",
+    "backToChat": "Go back to chat"
   }
 }

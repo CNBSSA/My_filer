@@ -12,5 +12,24 @@
     "streaming": "Mai na-eche echiche…",
     "language": "Asusu",
     "emptyHint": "Gbalia: \"Ana m enweta ₦5,000,000 n'afọ. Gịnị bụ PIT m maka 2026?\""
+  },
+  "identity": {
+    "title": "Kwenye onye ị bụ",
+    "subtitle": "Anyị na-enyocha NIN gị na onye nnyocha nwere ikike tupu anyị akwadebe faịlụ ọ bụla.",
+    "ninLabel": "Nọmba Njirimara Mba (NIN)",
+    "ninHelper": "Ọnụọgụgụ 11. Anyị anaghị echekwa NIN gị n'ihu ọha — naanị oyiri ezoro ezo nke e ji hash mee.",
+    "nameLabel": "Aha zuru ezu (otú ị chọrọ ka ọ dị n'akwụkwọ)",
+    "nameHelper": "Anyị na-atụnyere ya na ndekọ NIN, anyị ga-egosipụta ndịiche ọ bụla ka ị gaa n'ihu.",
+    "consentTitle": "Nkwenye",
+    "consentBody": "Ana m ekwenye na Mai Filer ga-enyocha ndekọ NIMC maka NIN a iji kwado ịkwụ ụtụ isi m. Aghọtara m na a ga-ezochi NIN m, a ga-edebekwa ndekọ nkwenye a.",
+    "consentCheckbox": "Ana m ekwe, nye nkwenye.",
+    "submit": "Kwenye NIN",
+    "submitting": "Na-akwenye…",
+    "resultVerified": "Akwenyela NIN",
+    "resultNotVerified": "Anyị enweghị ike ịkwenye NIN a",
+    "nameMatchStrict": "Aha ahụ dabara kpamkpam na ndekọ NIN.",
+    "nameMatchFuzzy": "Aha ahụ dị nso na ndekọ NIN.",
+    "nameMatchMismatch": "Aha ahụ adabaghị na ndekọ NIN. Lelee ya ọzọ tupu ịdebanye.",
+    "backToChat": "Gaa n'ihu na nkata"
   }
 }

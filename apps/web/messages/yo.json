@@ -12,5 +12,24 @@
     "streaming": "Mai n ronu…",
     "language": "Ede",
     "emptyHint": "Gbiyanju: \"Mo n gba ₦5,000,000 lodun. Kini PIT mi fun 2026?\""
+  },
+  "identity": {
+    "title": "Jeri ara re",
+    "subtitle": "A n ba NIN re sowo alase to ni ase saaju ki a to pese eyikeyi faili.",
+    "ninLabel": "Nomba Idanimo Orile-ede (NIN)",
+    "ninHelper": "Nomba mokanla. A ko ni fi NIN re pamo bi ose — eko ti a fi pamo nikan pelu hash.",
+    "nameLabel": "Oruko ni pipe (gege bi iwo yoo se fe ki o wa lori faili)",
+    "nameHelper": "A fi iwe yi we igbasile NIN, a o si samo iyato kan lati jeki e tun wo.",
+    "consentTitle": "Ifiyesi",
+    "consentBody": "Mo gba fun Mai Filer lati wa igbasile NIMC fun NIN yi lati se iranlowo fun fifi owo ori mi. Mo ye pe NIN mi ni a o fi pamo ati pe a o ni igbasile ti ipinnu naa.",
+    "consentCheckbox": "Mo gba ati pe mo fun ni ifiyesi.",
+    "submit": "Jeri NIN",
+    "submitting": "A n jeri…",
+    "resultVerified": "A ti jeri NIN",
+    "resultNotVerified": "A ko le jeri NIN yi",
+    "nameMatchStrict": "Oruko naa baramu si igbasile NIN gangan.",
+    "nameMatchFuzzy": "Oruko naa sunmo igbasile NIN.",
+    "nameMatchMismatch": "Oruko naa ko baramu si igbasile NIN. Tun wo o saaju ki o to fi ranse.",
+    "backToChat": "Tesiwaju si iforowanilenuwo"
   }
 }

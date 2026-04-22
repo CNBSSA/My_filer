@@ -121,6 +121,58 @@ export function filingPackDownloadUrl(
   return `${API_BASE}/v1/filings/${id}/pack.${format}`;
 }
 
+// ---------------------------------------------------------------------------
+// Identity (Phase 5)
+// ---------------------------------------------------------------------------
+
+export interface IdentityVerificationResult {
+  verified: boolean;
+  aggregator: string;
+  nin_hash: string;
+  full_name: string | null;
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  state_of_origin: string | null;
+  name_match:
+    | {
+        ok: boolean;
+        mode: "strict" | "fuzzy";
+        similarity?: number;
+        declared?: string;
+        record?: string;
+        missing_tokens?: string[];
+      }
+    | null;
+  name_match_status: "strict" | "fuzzy" | "mismatch" | null;
+  error: string | null;
+  attempts: number;
+  consent_log_id: string | null;
+}
+
+export async function verifyIdentity(input: {
+  nin: string;
+  consent: boolean;
+  declared_name?: string;
+  purpose?: string;
+  thread_id?: string | null;
+}): Promise<IdentityVerificationResult> {
+  const response = await fetch(`${API_BASE}/v1/identity/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const detail = await response
+      .json()
+      .then((b) => b.detail ?? response.statusText)
+      .catch(() => response.statusText);
+    throw new Error(`${response.status}: ${detail}`);
+  }
+  return response.json();
+}
+
 export type ChatStreamEvent = "start" | "delta" | "done";
 
 export interface ChatStreamChunk {
