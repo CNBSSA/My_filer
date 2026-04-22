@@ -83,23 +83,35 @@ Do not swap any of these without express approval.
 - **E-invoice standard** — UBL 3.0, 55 mandatory fields across 8 sections,
   cryptographic stamp (QR + CSID + IRN) from NRS on every successful filing.
 
-## 5. Deep References
+## 5. Locked Decisions (see `docs/DECISIONS.md` for rationale)
+
+- **ADR-0001** — Master plan is **approved and locked** (2026-04-22). No
+  scope, stack, role, or compliance change without a new owner approval.
+- **ADR-0002** — **v1 taxpayer focus: Individual (PAYE / PIT).** SME
+  (CIT / VAT / MBS e-invoice) is v2, owned by Phase 9.
+- **ADR-0003** — **Default identity aggregator: Dojah.** Seamfix and
+  Prembly ship as adapters behind the same interface; env flag switches.
+- **ADR-0004** — **v1 is multilingual**: English, Hausa, Yoruba, Igbo,
+  Nigerian Pidgin. NRS filing payloads remain English-only by regulation.
+
+## 6. Deep References
 
 - **Knowledge Base** (2026 tax law, rates, landscape): `docs/KNOWLEDGE_BASE.md`
 - **Master Plan** (locked): `docs/MASTER_PLAN.md`
+- **Decisions / ADRs**: `docs/DECISIONS.md`
 - **Roles** (detailed): `docs/ROLES.md`
 - **Architecture**: `docs/ARCHITECTURE.md`
 - **Compliance**: `docs/COMPLIANCE.md`
 - **Roadmap with smallest-task breakdown**: `docs/ROADMAP.md`
 
-## 6. Change Control
+## 7. Change Control
 
 > Once the user approves the master plan, **no scope, technology, role, or
 > compliance change may be made without express written approval in the
 > conversation.** Scope creep is treated as a defect. If a task appears to require
 > deviation, stop and ask.
 
-## 7. Working Rhythm
+## 8. Working Rhythm
 
 - Branch: `claude/mai-filer-bot-aQHn0` (all work pushed here).
 - Build in the smallest possible increments; commit after each green task.

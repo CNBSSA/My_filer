@@ -59,7 +59,19 @@ A phase is done only when all of:
 - [ ] Commits pushed to `claude/mai-filer-bot-aQHn0`.
 - [ ] A short demo path in the chat UI proves the phase works end-to-end.
 
+## Locked Decisions (as of 2026-04-22)
+
+| ADR | Decision |
+|---|---|
+| ADR-0001 | Master plan is **approved and locked** |
+| ADR-0002 | v1 focuses on **Individual (PAYE / PIT)**; SME is v2 |
+| ADR-0003 | Default identity aggregator is **Dojah** |
+| ADR-0004 | v1 ships **multilingual**: English, Hausa, Yoruba, Igbo, Pidgin |
+
+See `docs/DECISIONS.md` for the full rationale and consequences.
+
 ## Signatures
 
-- **Owner approval (to be captured in the conversation)**: _pending_
-- **Locked date**: _on approval_
+- **Owner approval**: **granted** — conversation of 2026-04-22.
+- **Locked date**: 2026-04-22.
+- **Next re-approval gate**: end of Phase 1 demo.

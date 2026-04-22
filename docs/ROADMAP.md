@@ -4,10 +4,14 @@
 > its own. Each task has an ID (`P{phase}.{n}`) so the user can reference any
 > one step ("do P2.3 next"). Statuses: `[ ]` pending · `[~]` in progress ·
 > `[x]` done · `[!]` blocked.
+>
+> **v1 scope reflects the locked ADRs** (`docs/DECISIONS.md`): individual
+> (PAYE / PIT) first, Dojah as default aggregator, English + Hausa + Yoruba +
+> Igbo + Pidgin from v1.
 
 ---
 
-## PHASE 0 — Foundation
+## PHASE 0 — Foundation ✅ COMPLETE
 
 Goal: clean monorepo, CLAUDE.md memory anchor, docs locked, dev env boots.
 
@@ -16,161 +20,181 @@ Goal: clean monorepo, CLAUDE.md memory anchor, docs locked, dev env boots.
 - [x] **P0.3** — Write `docs/ROLES.md`
 - [x] **P0.4** — Write `docs/ARCHITECTURE.md`
 - [x] **P0.5** — Write `docs/COMPLIANCE.md`
-- [~] **P0.6** — Write `docs/ROADMAP.md` (this file)
-- [ ] **P0.7** — Write `docs/MASTER_PLAN.md` (one-page lock contract)
-- [ ] **P0.8** — Create monorepo folders (`apps/api`, `apps/web`, `packages/shared`, `infra/`)
-- [ ] **P0.9** — Add root `.gitignore` (Python + Node + secrets + OS)
-- [ ] **P0.10** — Add root `.env.example` with every expected key
-- [ ] **P0.11** — Add root `README.md` (brief — points to CLAUDE.md)
-- [ ] **P0.12** — Create `apps/api/pyproject.toml` (FastAPI, Anthropic SDK, Pydantic, Ruff, pytest)
-- [ ] **P0.13** — Create `apps/api/app/__init__.py` and `apps/api/app/main.py` with `/health`
-- [ ] **P0.14** — Create `apps/api/app/config.py` with typed settings
-- [ ] **P0.15** — Create `apps/api/tests/test_health.py`
-- [ ] **P0.16** — Scaffold `apps/web` (Next.js 15 + TS + Tailwind)
-- [ ] **P0.17** — Add `docker-compose.yml` (Postgres 16, Redis 7)
-- [ ] **P0.18** — First commit + push to `claude/mai-filer-bot-aQHn0`
+- [x] **P0.6** — Write `docs/ROADMAP.md`
+- [x] **P0.7** — Write `docs/MASTER_PLAN.md`
+- [x] **P0.8** — Create monorepo folders (`apps/api`, `apps/web`, `packages/shared`, `infra/`)
+- [x] **P0.9** — Add root `.gitignore`
+- [x] **P0.10** — Add root `.env.example`
+- [x] **P0.11** — Add root `README.md`
+- [x] **P0.12** — Create `apps/api/pyproject.toml`
+- [x] **P0.13** — Create `apps/api/app/main.py` with `/health`
+- [x] **P0.14** — Create `apps/api/app/config.py` with typed settings
+- [x] **P0.15** — Create `apps/api/tests/test_health.py` (green)
+- [x] **P0.16** — Web placeholder (full Next.js scaffold is P1.10)
+- [x] **P0.17** — Add `docker-compose.yml` (Postgres 16, Redis 7, MinIO)
+- [x] **P0.18** — First commit + push
+- [x] **P0.19** — Write `docs/DECISIONS.md` (ADR-0001..0004)
 
-## PHASE 1 — Mai Filer Core (Agent Skeleton)
+## PHASE 1 — Mai Filer Core (Agent + Multilingual v1)
 
-Goal: a live chat with Mai Filer that introduces herself in-role, with no
-tools yet.
+Goal: live chat with in-role Mai Filer, streaming, persisted, and speaking
+the user's chosen Nigerian language.
+
+### 1a. Agent backbone
 
 - [ ] **P1.1** — Install `anthropic` SDK in `apps/api`
-- [ ] **P1.2** — Create `apps/api/app/agents/mai_filer/prompt.py` (v1 system prompt citing all 10 roles + Nigerian 2026 tax context)
-- [ ] **P1.3** — Create `apps/api/app/agents/mai_filer/orchestrator.py` (Claude client wrapper, prompt caching on system block)
-- [ ] **P1.4** — Add `/v1/chat` POST endpoint (non-streaming first)
-- [ ] **P1.5** — Pydantic schemas: `ChatTurn`, `ChatRequest`, `ChatResponse`
-- [ ] **P1.6** — Unit test the chat endpoint with a mocked Anthropic client
-- [ ] **P1.7** — Add streaming variant at `/v1/chat/stream` (SSE)
-- [ ] **P1.8** — DB: Alembic init; `threads`, `messages` tables
-- [ ] **P1.9** — Persist every turn to Postgres
-- [ ] **P1.10** — Web: `/chat` page with message list + input
-- [ ] **P1.11** — Web: wire SSE stream to the UI
-- [ ] **P1.12** — Web: thread list sidebar, load-by-id
-- [ ] **P1.13** — Smoke test: "Hello Mai" → in-role introduction
+- [ ] **P1.2** — Expand `apps/api/app/agents/mai_filer/prompt.py` with role doctrine, 2026 tax frame, and conversational style (v1 locked)
+- [ ] **P1.3** — Create `apps/api/app/agents/mai_filer/orchestrator.py` — Claude client wrapper with prompt caching on the system block
+- [ ] **P1.4** — Pydantic schemas in `apps/api/app/agents/mai_filer/schemas.py`: `ChatTurn`, `ChatRequest`, `ChatResponse`, `Language`
+- [ ] **P1.5** — `POST /v1/chat` endpoint (non-streaming first)
+- [ ] **P1.6** — Unit test chat endpoint with a mocked Anthropic client
+- [ ] **P1.7** — `POST /v1/chat/stream` (Server-Sent Events)
 
-## PHASE 2 — Tax Calculator Service (Pure Math)
+### 1b. Persistence
 
-Goal: every tax computation is a tested pure function; Mai can call them.
+- [ ] **P1.8** — Alembic init; `threads` + `messages` tables (with `language`, `user_id`, `created_at`)
+- [ ] **P1.9** — Persist every chat turn; return thread IDs
+
+### 1c. Multilingual (ADR-0004)
+
+- [ ] **P1.10** — `apps/api/app/i18n/` — language registry (en, ha, yo, ig, pcm) and system-prompt addenda per language (tone, greeting conventions, tax-jargon glossary)
+- [ ] **P1.11** — `/v1/chat` accepts `language` field; orchestrator injects the matching addendum as an appended system block
+- [ ] **P1.12** — Low-confidence translation fallback: if Claude's detected output language drifts, append an English recap
+- [ ] **P1.13** — Unit tests — orchestrator picks the right addendum per language
+
+### 1d. Web
+
+- [ ] **P1.14** — `cd apps/web && npx create-next-app@latest . --ts --tailwind --app --src-dir`
+- [ ] **P1.15** — `next-intl` install + `messages/{en,ha,yo,ig,pcm}.json` stubs
+- [ ] **P1.16** — `/chat` page: message list, input, language selector in header
+- [ ] **P1.17** — Wire SSE stream to the UI; render partial tokens
+- [ ] **P1.18** — Thread list sidebar; load-by-id
+- [ ] **P1.19** — Demo flow: "Hello Mai" in each of en / ha / yo / ig / pcm → Mai introduces herself in that language
+
+## PHASE 2 — Tax Calculator Service (Individual-First)
+
+Goal: Mai can compute PIT and PAYE via tool use, explain bands, and propose
+legal reliefs.
 
 - [ ] **P2.1** — `apps/api/app/tax/pit.py` — `calculate_pit_2026(annual_income: Decimal) -> PITResult` with per-band breakdown
-- [ ] **P2.2** — Unit tests for PIT covering each band boundary + zero + negative guard
-- [ ] **P2.3** — `apps/api/app/tax/vat.py` — `calculate_vat(taxable_supply, exempt, rate=Decimal("0.075"))`
-- [ ] **P2.4** — VAT threshold check: `is_vat_registrable(annual_turnover)` (₦100m)
-- [ ] **P2.5** — VAT unit tests
-- [ ] **P2.6** — `apps/api/app/tax/cit.py` — CIT per turnover tier (**blocked pending user input on 2026 bands**)
-- [ ] **P2.7** — `apps/api/app/tax/wht.py` — WHT by class (**blocked pending user input on 2026 rates**)
-- [ ] **P2.8** — `apps/api/app/tax/paye.py` — PAYE after CRA, pension, NHIS
-- [ ] **P2.9** — PAYE unit tests
-- [ ] **P2.10** — `apps/api/app/tax/dev_levy.py` — 4% Development Levy calculator
-- [ ] **P2.11** — Register each calculator as a Claude tool (tool schemas in `agents/mai_filer/tools.py`)
-- [ ] **P2.12** — Tool-use smoke test: "I earn ₦5m. What's my PIT?" → Mai calls `calculate_pit_2026` and explains bands
-- [ ] **P2.13** — Optimizer pass: Mai proposes pension top-up / reliefs to reduce liability
+- [ ] **P2.2** — Unit tests covering each band boundary + zero + negative guard
+- [ ] **P2.3** — `apps/api/app/tax/paye.py` — PAYE after CRA, pension, NHIS
+- [ ] **P2.4** — PAYE unit tests (representative payslip fixtures)
+- [ ] **P2.5** — `apps/api/app/tax/reliefs.py` — pension top-up, voluntary contributions, life-insurance relief calculator
+- [ ] **P2.6** — Relief unit tests
+- [ ] **P2.7** — Tool wrappers in `agents/mai_filer/tools.py` — `calc_pit`, `calc_paye`, `explore_reliefs`
+- [ ] **P2.8** — Register tools with the orchestrator; enable tool use
+- [ ] **P2.9** — Smoke test: "I earn ₦5m/year. What's my PIT?" → Mai calls `calc_pit`, explains bands in user's language
+- [ ] **P2.10** — `apps/api/app/tax/vat.py` + `is_vat_registrable(turnover)` (deferred surface for v2 SME, but the ₦100m check is also useful for individuals with side businesses)
+- [ ] **P2.11** — VAT unit tests
+- [ ] **P2.12** — **[blocked — owner input]** `apps/api/app/tax/cit.py` — needs 2026 CIT bands by turnover
+- [ ] **P2.13** — **[blocked — owner input]** `apps/api/app/tax/wht.py` — needs 2026 WHT rates per transaction class
+- [ ] **P2.14** — `apps/api/app/tax/dev_levy.py` — 4% Development Levy (scaffold; exercised in v2)
 
-## PHASE 3 — Document Intelligence
+## PHASE 3 — Document Intelligence (Payslip First)
 
-Goal: upload a payslip; Mai extracts structured data and pre-fills PAYE.
+Goal: upload a Nigerian payslip, Mai extracts structured data, pre-fills the
+PAYE worksheet.
 
 - [ ] **P3.1** — `POST /v1/documents` multipart endpoint
-- [ ] **P3.2** — Storage adapter interface (`StorageAdapter`) + local MinIO dev impl
-- [ ] **P3.3** — `documents/extractor.py` — Claude Sonnet 4.6 Vision call with structured-output schema
-- [ ] **P3.4** — Payslip schema: gross, tax, pension, NHIS, CRA, period
-- [ ] **P3.5** — Payslip extraction test with a sample fixture
-- [ ] **P3.6** — Receipt schema + extractor
-- [ ] **P3.7** — Bank statement schema + extractor
-- [ ] **P3.8** — CAC certificate schema + extractor
-- [ ] **P3.9** — Tool registration: `extract_document(file_id)` for Mai
-- [ ] **P3.10** — Web: upload widget in chat; drag-and-drop
-- [ ] **P3.11** — End-to-end: upload payslip → Mai acknowledges → PAYE pre-filled
+- [ ] **P3.2** — `StorageAdapter` interface + `MinioStorage` dev impl
+- [ ] **P3.3** — `documents/extractor.py` — Claude Sonnet 4.6 Vision wrapper with structured-output enforcement
+- [ ] **P3.4** — Payslip Pydantic schema: gross, CRA, pension, NHIS, PAYE withheld, period, employer
+- [ ] **P3.5** — Payslip extraction test with a fixture PDF / image
+- [ ] **P3.6** — Bank statement schema + extractor
+- [ ] **P3.7** — Receipt schema + extractor
+- [ ] **P3.8** — Tool registration: `extract_document(file_id)` for Mai
+- [ ] **P3.9** — Web: upload widget in chat (drag-and-drop, mobile camera)
+- [ ] **P3.10** — End-to-end: upload payslip → Mai acknowledges → PAYE pre-filled
 
-## PHASE 4 — Filing Pack Generator (Short-Term Download Path)
+## PHASE 4 — Filing Pack Generator (Individual Path)
 
-Goal: user can download an NRS-compliant pack for manual submission.
+Goal: generate a downloadable, NRS-compliant PIT / PAYE pack for manual
+submission.
 
-- [ ] **P4.1** — `filing/schema.py` — Pydantic models for the 55 fields across 8 sections (**blocked pending user-provided field list**)
-- [ ] **P4.2** — UBL 3.0 JSON serializer
-- [ ] **P4.3** — UBL 3.0 XML serializer (`lxml`)
-- [ ] **P4.4** — PDF renderer (`weasyprint` or `reportlab`)
-- [ ] **P4.5** — Placeholder QR generator (replaced by CSID on live path)
-- [ ] **P4.6** — `POST /v1/filings/{id}/pack` returns a signed download URL
-- [ ] **P4.7** — Audit Shield validator: 55-field completeness + UBL schema pass
-- [ ] **P4.8** — Audit Shield returns green / yellow / red with specifics
-- [ ] **P4.9** — Mai runs Audit Shield before offering a download link
-- [ ] **P4.10** — Web: "Review & download" flow with the shield report
+- [ ] **P4.1** — PIT / PAYE return schema in `apps/api/app/filing/returns.py` (Pydantic)
+- [ ] **P4.2** — Per-return JSON serializer (structured, validator-ready)
+- [ ] **P4.3** — Per-return PDF renderer (`weasyprint`); branded, NRS-portal-ready
+- [ ] **P4.4** — `POST /v1/filings/{id}/pack` returns a signed download URL
+- [ ] **P4.5** — Audit Shield validator: required fields, NIN name match, recomputed totals
+- [ ] **P4.6** — Audit Shield returns green / yellow / red with line-item diagnostics
+- [ ] **P4.7** — Mai runs Audit Shield before offering a download link
+- [ ] **P4.8** — Web: "Review & download" flow with the shield report
+- [ ] **P4.9** — **[deferred to v2 SME]** UBL 3.0 + 55-field schema (`P4.x series`) — blocked on owner's 55-field list
 
-## PHASE 5 — NIN / CAC Verification (via Aggregator)
+## PHASE 5 — NIN Verification (Dojah default)
 
-Goal: verified identity before filing; consent captured.
+Goal: verified individual identity with NDPR-compliant consent.
 
 - [ ] **P5.1** — `identity/base.py` — `IdentityAggregator` abstract base
-- [ ] **P5.2** — `identity/dojah.py` adapter (default)
+- [ ] **P5.2** — `identity/dojah.py` adapter (default, ADR-0003)
 - [ ] **P5.3** — `identity/seamfix.py` adapter
 - [ ] **P5.4** — `identity/prembly.py` adapter
-- [ ] **P5.5** — `identity/service.py` — `verify_taxpayer(nin, consent)` with retry + backoff for NIN-TIN sync delay
-- [ ] **P5.6** — NIN hashing util (salted SHA-256) + encrypted-vault writer
-- [ ] **P5.7** — Consent model + append-only log table
-- [ ] **P5.8** — Name-match utility (NIN record vs. return)
+- [ ] **P5.5** — `identity/service.py` — `verify_taxpayer(nin, consent)` with 24–72h NIN-TIN sync retry + exponential backoff
+- [ ] **P5.6** — NIN hash util (salted SHA-256) + encrypted-vault writer
+- [ ] **P5.7** — `consent_log` table (append-only); every NIN call writes a row
+- [ ] **P5.8** — Name-match util (NIN record vs. return, fuzzy + strict modes)
 - [ ] **P5.9** — Tool registration: `verify_identity(nin)` for Mai
-- [ ] **P5.10** — Web: NIN capture UI with explicit consent checkbox
-- [ ] **P5.11** — End-to-end: user enters NIN, Mai verifies, proceeds
+- [ ] **P5.10** — Web: NIN capture UI with explicit consent checkbox **rendered in the user's selected Nigerian language**
+- [ ] **P5.11** — End-to-end: user enters NIN, consent captured, Mai verifies, filing proceeds
 
-## PHASE 6 — NRS Sandbox Handshake (Live Path v1)
-
-Goal: a signed request reaches NRS sandbox and returns a valid response shape.
+## PHASE 6 — NRS Sandbox Handshake (Live Path Prep)
 
 - [ ] **P6.1** — `gateway/signing.py` — HMAC-SHA256 signer with unit tests
-- [ ] **P6.2** — Timestamp utility (ISO-20022) + replay window guard
-- [ ] **P6.3** — `gateway/nrs_client.py` — request envelope (headers + body)
-- [ ] **P6.4** — Celery setup (`infra/celery.py`, worker Docker service)
-- [ ] **P6.5** — `submit_filing` Celery task with exponential backoff (2,4,8,16s)
-- [ ] **P6.6** — Store `IRN`, `CSID`, `QR` on success
+- [ ] **P6.2** — Timestamp util (ISO-20022) + replay-window guard
+- [ ] **P6.3** — `gateway/nrs_client.py` — request envelope
+- [ ] **P6.4** — Celery setup + worker Docker service
+- [ ] **P6.5** — `submit_filing` task with backoff (2, 4, 8, 16 s)
+- [ ] **P6.6** — Persist `IRN`, `CSID`, `QR` on success
 - [ ] **P6.7** — Sandbox smoke test against a mock NRS endpoint
-- [ ] **P6.8** — Rejection-reason translator: NRS error codes → plain-English Mai message
+- [ ] **P6.8** — NRS error-code translator → plain-English, localized, Mai-friendly messages
 
 ## PHASE 7 — Rev360 Live + Accreditation
 
-Goal: real submissions, real license.
-
-- [ ] **P7.1** — Engage an Access Point Provider (DigiTax / UsawaConnect) — partnership track
-- [ ] **P7.2** — NRS Developer Portal onboarding (Client ID, Secret, Business ID)
+- [ ] **P7.1** — Engage an Access Point Provider (DigiTax / UsawaConnect) per ADR-0002 pre-APP path
+- [ ] **P7.2** — NRS Developer Portal onboarding
 - [ ] **P7.3** — Production credentials via Vault / KMS
 - [ ] **P7.4** — Swap HMAC for JWT if NRS mandates post-Rev360
-- [ ] **P7.5** — Observability: Prometheus + Grafana dashboards for submission SLAs
+- [ ] **P7.5** — Observability: Prometheus + Grafana SLAs
 - [ ] **P7.6** — NDPC DPCA audit workflow
 - [ ] **P7.7** — NITDA code-clearance package
 
-## PHASE 8 — Learning Partner & Year-over-Year Memory
+## PHASE 8 — Learning Partner
 
 - [ ] **P8.1** — pgvector install + migration
 - [ ] **P8.2** — `memory/facts.py` — structured yearly facts
 - [ ] **P8.3** — `memory/recall.py` — semantic recall over prior filings
-- [ ] **P8.4** — Anomaly detector (YoY VAT / PIT shifts)
-- [ ] **P8.5** — Mid-year nudges ("you're trending toward VAT registration")
+- [ ] **P8.4** — YoY anomaly detector (PIT variance, salary jumps)
+- [ ] **P8.5** — Mid-year nudges
 
-## PHASE 9 — Receipt & E-Invoice Co-Pilot (SME)
+## PHASE 9 — SME (CIT / VAT / MBS) — **v2**
 
-- [ ] **P9.1** — Invoice composer UI
-- [ ] **P9.2** — 55-field invoice schema reuse from `filing/`
-- [ ] **P9.3** — MBS submission within 24h via Celery
-- [ ] **P9.4** — QR + CSID rendering on the final invoice
+Guarded by ADR-0002. Full plan here is a placeholder; the phase will get its
+own decision supplement before execution begins.
 
-## PHASE 10 — Polish & Localization
+- [ ] **P9.1** — CIT bands + calculator (needs ADR + owner input)
+- [ ] **P9.2** — WHT by transaction class (needs ADR + owner input)
+- [ ] **P9.3** — UBL 3.0 + 55-field schema (needs owner-provided field list)
+- [ ] **P9.4** — MBS 24h sync Celery pipeline
+- [ ] **P9.5** — E-invoice composer UI with QR + CSID rendering
+- [ ] **P9.6** — CAC verification flow (reuses Phase 5 adapters)
+
+## PHASE 10 — Polish
 
 - [ ] **P10.1** — Dashboards (liability YTD, deadlines, deduction utilization)
-- [ ] **P10.2** — Multilingual: Hausa, Yoruba, Igbo explanation variants
-- [ ] **P10.3** — Mobile-responsive chat
-- [ ] **P10.4** — Accessibility audit (WCAG AA)
+- [ ] **P10.2** — Mobile-responsive polish
+- [ ] **P10.3** — Accessibility audit (WCAG AA)
+- [ ] **P10.4** — Additional Nigerian languages beyond v1 (e.g., Fulfulde) — subject to a later ADR
 
 ---
 
-## Decisions Still Pending (Owner Must Answer Before the Task Unblocks)
+## Decisions Pending (Owner Input Required to Unblock)
 
-| Task | Question |
+These do **not** block v1 since v1 is individual-focused:
+
+| Task(s) | Question |
 |---|---|
-| P2.6 | Exact 2026 CIT bands by turnover |
-| P2.7 | Exact 2026 WHT rates per transaction class |
-| P4.1 | Final list of the 55 NRS fields (8 sections) |
-| P5.2–P5.4 | Chosen default aggregator (Dojah / Seamfix / Prembly) |
-| P10.2 | Which Nigerian languages ship in v1 vs. later |
-| — | Target license tier: PSP now, SI later? |
-| — | First taxpayer type focus: individual (PAYE/PIT), SME (CIT/VAT), or parallel? |
+| P2.12 | Exact 2026 CIT bands by turnover (v2) |
+| P2.13 | Exact 2026 WHT rates per transaction class (v2) |
+| P4.9 / P9.3 | Final list of NRS 55 mandatory fields across 8 sections (v2) |
+| P9.x | Target license tier: PSP v1 → SI v2, or straight to APP? |
