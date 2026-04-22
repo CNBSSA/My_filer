@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "cryptography>=43.0",
     "orjson>=3.10",
+    "reportlab>=4.2",
 ]
 
 [project.optional-dependencies]

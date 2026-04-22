@@ -101,3 +101,34 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
+
+
+class Filing(Base):
+    """A taxpayer's return in progress or finalized.
+
+    `return_json` holds the canonical PITReturn. `audit_json` carries the
+    latest Audit Shield report. When the pack is generated we stash storage
+    keys for the PDF + JSON so the download endpoint can stream them.
+    """
+
+    __tablename__ = "filings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tax_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    return_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    audit_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending"
+    )
+    audit_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    pack_json_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pack_pdf_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    finalized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )

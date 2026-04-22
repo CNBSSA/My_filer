@@ -19,8 +19,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable
 
-from app.db.models import Document
+from app.db.models import Document, Filing
 from app.db.session import get_session
+from app.documents.storage import get_default_storage
+from app.filing.service import PackNotReadyError, audit_filing, generate_pack
 from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
 from app.tax.pit import calculate_pit_2026
@@ -239,6 +241,101 @@ def _run_read_document_extraction(document_id: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Filing tools (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _run_audit_filing(filing_id: str) -> dict[str, Any]:
+    """Run Audit Shield on a filing and return the full report.
+
+    Mai Filer must call this before offering a pack download — she refuses to
+    finalize a filing that is still red, per ROLES.md Role 6 (Audit Shield).
+    """
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        filing = session.get(Filing, filing_id)
+        if filing is None:
+            return {"error": f"filing not found: {filing_id}"}
+        report = audit_filing(session=session, filing=filing)
+        return {
+            "filing_id": filing.id,
+            "tax_year": filing.tax_year,
+            "status": report.status,
+            "findings": [f.to_dict() for f in report.findings],
+        }
+    finally:
+        session_gen.close()
+
+
+def _run_prepare_filing_pack(filing_id: str) -> dict[str, Any]:
+    """Build the downloadable JSON + PDF pack for a filing.
+
+    Runs Audit Shield first. If status is 'red', returns an error so Mai can
+    explain what to fix before retrying. Otherwise returns the pack summary
+    and the download URLs (the pack itself is persisted on the filing row).
+    """
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        filing = session.get(Filing, filing_id)
+        if filing is None:
+            return {"error": f"filing not found: {filing_id}"}
+        try:
+            pack = generate_pack(
+                session=session, storage=get_default_storage(), filing=filing
+            )
+        except PackNotReadyError as exc:
+            return {
+                "error": str(exc),
+                "audit_status": filing.audit_status,
+                "audit": filing.audit_json,
+            }
+        return {
+            "filing_id": filing.id,
+            "tax_year": filing.tax_year,
+            "audit_status": filing.audit_status,
+            "settlement": pack["settlement"],
+            "total_tax": pack["computation"]["total_tax"],
+            "download_urls": {
+                "pdf": f"/v1/filings/{filing.id}/pack.pdf",
+                "json": f"/v1/filings/{filing.id}/pack.json",
+            },
+            "finalized_at": filing.finalized_at.isoformat() if filing.finalized_at else None,
+        }
+    finally:
+        session_gen.close()
+
+
+def _run_list_recent_filings(limit: int = 10) -> dict[str, Any]:
+    """List the most recent filings — useful when a user refers to 'my filing'."""
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        rows = (
+            session.query(Filing)
+            .order_by(Filing.created_at.desc())
+            .limit(max(1, min(limit, 50)))
+            .all()
+        )
+        return {
+            "filings": [
+                {
+                    "id": f.id,
+                    "tax_year": f.tax_year,
+                    "audit_status": f.audit_status,
+                    "pack_ready": bool(f.pack_pdf_key and f.pack_json_key),
+                    "created_at": f.created_at.isoformat(),
+                    "finalized_at": f.finalized_at.isoformat() if f.finalized_at else None,
+                }
+                for f in rows
+            ]
+        }
+    finally:
+        session_gen.close()
+
+
+# ---------------------------------------------------------------------------
 # Tool registry
 # ---------------------------------------------------------------------------
 
@@ -400,6 +497,57 @@ TOOLS: tuple[Tool, ...] = (
             "required": ["document_id"],
         },
         run=_run_read_document_extraction,
+    ),
+    Tool(
+        name="audit_filing",
+        description=(
+            "Run the Audit Shield on a filing by id. Returns status "
+            "(green|yellow|red) and an itemized list of findings. You MUST run "
+            "this before offering the taxpayer a downloadable pack; if the "
+            "status is red, explain each finding and ask the user to fix it "
+            "before retrying."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "filing_id": {"type": "string", "description": "UUID of the filing."}
+            },
+            "required": ["filing_id"],
+        },
+        run=_run_audit_filing,
+    ),
+    Tool(
+        name="prepare_filing_pack",
+        description=(
+            "Build the downloadable NRS-ready pack (JSON + PDF) for a filing. "
+            "Runs Audit Shield internally; if status is red the tool returns an "
+            "error payload — do NOT invent a download URL in that case. On "
+            "success, surface the download URLs in your reply so the UI can "
+            "link them."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "filing_id": {"type": "string", "description": "UUID of the filing."}
+            },
+            "required": ["filing_id"],
+        },
+        run=_run_prepare_filing_pack,
+    ),
+    Tool(
+        name="list_recent_filings",
+        description=(
+            "List the most recently created filings for the current session. "
+            "Use this when the user says 'my filing' or 'the return' without "
+            "specifying an id."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}
+            },
+        },
+        run=_run_list_recent_filings,
     ),
 )
 

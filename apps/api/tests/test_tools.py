@@ -14,7 +14,8 @@ from app.agents.mai_filer.orchestrator import (
 )
 from app.agents.mai_filer.schemas import ChatRequest
 from app.agents.mai_filer.tools import TOOLS, run_tool, tool_names, tool_schemas
-from app.db.models import Document
+from app.db.models import Document, Filing
+from app.documents.storage import InMemoryStorage, set_default_storage
 
 
 def test_tool_registry_exposes_expected_tools() -> None:
@@ -28,6 +29,9 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "calc_dev_levy",
         "list_recent_documents",
         "read_document_extraction",
+        "audit_filing",
+        "prepare_filing_pack",
+        "list_recent_filings",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -255,6 +259,115 @@ def test_read_document_extraction_tool_handles_missing_id(override_db) -> None:
         run_tool("read_document_extraction", {"document_id": "nope"})
     )
     assert "error" in payload
+
+
+# ---------------------------------------------------------------------------
+# Filing tools (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _green_return_dict() -> dict:
+    from datetime import date
+    from decimal import Decimal
+
+    from app.filing.schemas import IncomeSource, PITReturn, TaxpayerIdentity
+
+    return PITReturn(
+        tax_year=2026,
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 12, 31),
+        taxpayer=TaxpayerIdentity(
+            nin="12345678901",
+            full_name="Chidi Okafor",
+            residential_address="1 Ikoyi Crescent",
+        ),
+        income_sources=[
+            IncomeSource(
+                kind="employment",
+                payer_name="Globacom Ltd",
+                gross_amount=Decimal("5000000"),
+                tax_withheld=Decimal("650000"),
+                period_start=date(2026, 1, 1),
+                period_end=date(2026, 12, 31),
+            )
+        ],
+        declaration=True,
+    ).model_dump(mode="json")
+
+
+def test_audit_filing_tool_returns_green_for_valid_return(db_session, override_db) -> None:
+    filing = Filing(
+        id="f-1",
+        tax_year=2026,
+        return_json=_green_return_dict(),
+        audit_status="pending",
+    )
+    db_session.add(filing)
+    db_session.commit()
+    payload = json.loads(run_tool("audit_filing", {"filing_id": "f-1"}))
+    assert payload["status"] == "green"
+    assert payload["findings"] == []
+
+
+def test_audit_filing_tool_handles_missing_filing(override_db) -> None:
+    payload = json.loads(run_tool("audit_filing", {"filing_id": "nope"}))
+    assert "error" in payload
+
+
+def test_prepare_filing_pack_tool_green_path(db_session, override_db) -> None:
+    set_default_storage(InMemoryStorage())
+    try:
+        filing = Filing(
+            id="f-2",
+            tax_year=2026,
+            return_json=_green_return_dict(),
+            audit_status="pending",
+        )
+        db_session.add(filing)
+        db_session.commit()
+        payload = json.loads(run_tool("prepare_filing_pack", {"filing_id": "f-2"}))
+        assert payload.get("audit_status") == "green"
+        assert payload["download_urls"]["pdf"].endswith("/pack.pdf")
+        assert payload["download_urls"]["json"].endswith("/pack.json")
+        assert payload["settlement"]["net_payable"] == "40000.00"
+    finally:
+        set_default_storage(InMemoryStorage())  # reset
+
+
+def test_prepare_filing_pack_tool_refuses_red_audit(db_session, override_db) -> None:
+    set_default_storage(InMemoryStorage())
+    try:
+        bad = _green_return_dict()
+        bad["declaration"] = False
+        filing = Filing(
+            id="f-3",
+            tax_year=2026,
+            return_json=bad,
+            audit_status="pending",
+        )
+        db_session.add(filing)
+        db_session.commit()
+        payload = json.loads(run_tool("prepare_filing_pack", {"filing_id": "f-3"}))
+        assert "error" in payload
+        assert payload.get("audit_status") == "red"
+    finally:
+        set_default_storage(InMemoryStorage())
+
+
+def test_list_recent_filings_tool(db_session, override_db) -> None:
+    db_session.add(
+        Filing(
+            id="f-4",
+            tax_year=2026,
+            return_json=_green_return_dict(),
+            audit_status="green",
+        )
+    )
+    db_session.commit()
+    payload = json.loads(run_tool("list_recent_filings", {"limit": 5}))
+    assert len(payload["filings"]) == 1
+    assert payload["filings"][0]["id"] == "f-4"
+    assert payload["filings"][0]["audit_status"] == "green"
 
 
 def test_orchestrator_respects_tool_turn_cap() -> None:

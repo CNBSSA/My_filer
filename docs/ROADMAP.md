@@ -107,20 +107,20 @@ PAYE worksheet.
 - [x] **P3.9** — Web: upload widget in chat (📎 picker + page-wide drag-and-drop). Uploads via `POST /v1/documents`, then injects a "I just uploaded…" nudge into the conversation so Mai calls `read_document_extraction` + `calc_paye`.
 - [x] **P3.10** — End-to-end browser demo documented in `README.md` (run steps). Live Claude calls still require a valid `ANTHROPIC_API_KEY`; the plumbing is verified green by 87 unit tests.
 
-## PHASE 4 — Filing Pack Generator (Individual Path)
+## PHASE 4 — Filing Pack Generator (Individual Path) ✅ BACKEND COMPLETE
 
 Goal: generate a downloadable, NRS-compliant PIT / PAYE pack for manual
 submission.
 
-- [ ] **P4.1** — PIT / PAYE return schema in `apps/api/app/filing/returns.py` (Pydantic)
-- [ ] **P4.2** — Per-return JSON serializer (structured, validator-ready)
-- [ ] **P4.3** — Per-return PDF renderer (`weasyprint`); branded, NRS-portal-ready
-- [ ] **P4.4** — `POST /v1/filings/{id}/pack` returns a signed download URL
-- [ ] **P4.5** — Audit Shield validator: required fields, NIN name match, recomputed totals
-- [ ] **P4.6** — Audit Shield returns green / yellow / red with line-item diagnostics
-- [ ] **P4.7** — Mai runs Audit Shield before offering a download link
-- [ ] **P4.8** — Web: "Review & download" flow with the shield report
-- [ ] **P4.9** — **[deferred to v2 SME]** UBL 3.0 + 55-field schema (`P4.x series`) — blocked on owner's 55-field list
+- [x] **P4.1** — PIT / PAYE return schema in `apps/api/app/filing/schemas.py` (Pydantic) + `Filing` ORM + alembic 0003
+- [x] **P4.2** — `apps/api/app/filing/serialize.py` — canonical JSON pack builder (stable key order, Decimal→string, authoritative recomputation)
+- [x] **P4.3** — `apps/api/app/filing/pdf.py` — branded PDF renderer via ReportLab (taxpayer block, income sources table, deductions, PIT bands, settlement, declaration)
+- [x] **P4.4** — `apps/api/app/api/filings.py`: POST `/v1/filings` (create), PUT `/{id}` (update), POST `/{id}/audit`, POST `/{id}/pack`, GET `/{id}/pack.pdf`, GET `/{id}/pack.json`
+- [x] **P4.5** — `apps/api/app/filing/audit.py` — Audit Shield with 11 v1 checks (NIN, name, tax year, declaration, income, per-source sanity, pension heuristic, deductions vs gross, withheld consistency, recompute check, supporting-doc cross-ref)
+- [x] **P4.6** — Green/yellow/red classification with structured `AuditFinding` list (code, severity, message, field_path)
+- [x] **P4.7** — Mai Filer tools: `audit_filing`, `prepare_filing_pack` (refuses to finalize a red-status filing), `list_recent_filings`. Registry grew from 8 to 11 tools.
+- [ ] **P4.8** — Web: "Review & download" flow with the shield report (next slice)
+- [ ] **P4.9** — **[deferred to v2 SME]** UBL 3.0 + 55-field schema — blocked on owner's 55-field list
 
 ## PHASE 5 — NIN Verification (Dojah default)
 
