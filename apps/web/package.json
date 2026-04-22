@@ -1,0 +1,11 @@
+{
+  "name": "mai-filer-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mai Filer — Next.js chat-first frontend. Scaffolded in Phase 1.",
+  "scripts": {
+    "dev": "echo 'Web scaffold pending Phase 1 — run: npx create-next-app@latest . --ts --tailwind --app --src-dir'",
+    "build": "echo 'pending Phase 1'",
+    "start": "echo 'pending Phase 1'"
+  }
+}
