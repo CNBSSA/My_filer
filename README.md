@@ -64,6 +64,18 @@ Then in the browser:
 6. Mai calls `read_document_extraction`, then `calc_paye` on the extracted
    figures, then explains the 2026 PAYE band-by-band in your chosen language.
 
+### Filing pack (Phase 4)
+
+Once you have a complete return (NIN + name + at least one income source +
+declaration affirmed), you can generate a downloadable pack:
+
+- `POST /v1/filings` with a PITReturn body to create a filing.
+- Mai Filer calls `audit_filing` (tool), then `prepare_filing_pack`, then
+  surfaces the download URLs.
+- Visit `http://localhost:3000/filings/<filing-id>` to review the Audit
+  Shield report (green / yellow / red with itemized findings) and download
+  the branded PDF or canonical JSON pack.
+
 ## Branch policy
 
 All development on `claude/mai-filer-bot-aQHn0` per project instructions.

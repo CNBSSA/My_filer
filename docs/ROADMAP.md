@@ -119,7 +119,7 @@ submission.
 - [x] **P4.5** — `apps/api/app/filing/audit.py` — Audit Shield with 11 v1 checks (NIN, name, tax year, declaration, income, per-source sanity, pension heuristic, deductions vs gross, withheld consistency, recompute check, supporting-doc cross-ref)
 - [x] **P4.6** — Green/yellow/red classification with structured `AuditFinding` list (code, severity, message, field_path)
 - [x] **P4.7** — Mai Filer tools: `audit_filing`, `prepare_filing_pack` (refuses to finalize a red-status filing), `list_recent_filings`. Registry grew from 8 to 11 tools.
-- [ ] **P4.8** — Web: "Review & download" flow with the shield report (next slice)
+- [x] **P4.8** — Web: `/filings/[id]` review page with Audit Shield summary, run-audit / prepare-pack buttons, taxpayer + computation + sources breakdown, PDF/JSON download links
 - [ ] **P4.9** — **[deferred to v2 SME]** UBL 3.0 + 55-field schema — blocked on owner's 55-field list
 
 ## PHASE 5 — NIN Verification (Dojah default)

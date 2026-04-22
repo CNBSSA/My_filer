@@ -51,6 +51,76 @@ export async function uploadDocument({
   return response.json();
 }
 
+// ---------------------------------------------------------------------------
+// Filings (Phase 4)
+// ---------------------------------------------------------------------------
+
+export type AuditStatus = "pending" | "green" | "yellow" | "red";
+export type AuditSeverity = "info" | "warn" | "error";
+
+export interface AuditFinding {
+  code: string;
+  severity: AuditSeverity;
+  message: string;
+  field_path: string | null;
+}
+
+export interface AuditReport {
+  status: Exclude<AuditStatus, "pending">;
+  findings: AuditFinding[];
+}
+
+export interface FilingRecord {
+  id: string;
+  user_id: string | null;
+  tax_year: number;
+  return: Record<string, unknown>;
+  audit_status: AuditStatus;
+  audit: AuditReport | null;
+  pack_ready: boolean;
+  finalized_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+async function _json<T>(resp: Response): Promise<T> {
+  if (!resp.ok) {
+    const detail = await resp
+      .json()
+      .then((b) => b.detail ?? resp.statusText)
+      .catch(() => resp.statusText);
+    throw new Error(`${resp.status}: ${detail}`);
+  }
+  return resp.json();
+}
+
+export async function getFiling(id: string): Promise<FilingRecord> {
+  return _json(await fetch(`${API_BASE}/v1/filings/${id}`));
+}
+
+export async function runAudit(
+  id: string,
+): Promise<{ filing: FilingRecord; audit: AuditReport }> {
+  return _json(
+    await fetch(`${API_BASE}/v1/filings/${id}/audit`, { method: "POST" }),
+  );
+}
+
+export async function buildFilingPack(
+  id: string,
+): Promise<{ filing: FilingRecord; pack: Record<string, unknown> }> {
+  return _json(
+    await fetch(`${API_BASE}/v1/filings/${id}/pack`, { method: "POST" }),
+  );
+}
+
+export function filingPackDownloadUrl(
+  id: string,
+  format: "pdf" | "json",
+): string {
+  return `${API_BASE}/v1/filings/${id}/pack.${format}`;
+}
+
 export type ChatStreamEvent = "start" | "delta" | "done";
 
 export interface ChatStreamChunk {
