@@ -62,6 +62,106 @@ class PayslipExtraction(BaseModel):
         return self.gross_income * Decimal(multiplier)
 
 
+class BankTransaction(BaseModel):
+    """One line on a bank statement."""
+
+    model_config = {"populate_by_name": True}
+
+    transaction_date: date | None = Field(default=None, alias="date")
+    description: str
+    direction: Literal["credit", "debit"]
+    amount: Decimal
+    balance_after: Decimal | None = None
+    category: Literal[
+        "salary",
+        "business_income",
+        "rent_received",
+        "pension_contribution",
+        "nhis_contribution",
+        "nhf_contribution",
+        "tax_payment",
+        "transfer",
+        "fee",
+        "utility",
+        "other",
+    ] = "other"
+
+
+class BankStatementExtraction(BaseModel):
+    """Structured output from a Nigerian bank statement.
+
+    We deliberately do **not** capture full account numbers — only the last
+    four digits — to minimize PII leaking into prompts and logs (NDPR
+    minimization per COMPLIANCE.md §1). The account holder's full name is
+    also optional; the caller cross-references it with the taxpayer identity
+    before using any figure in a return.
+    """
+
+    bank_name: str | None = None
+    account_holder_name: str | None = None
+    account_number_last4: str | None = Field(default=None, max_length=4)
+    statement_period_start: date | None = None
+    statement_period_end: date | None = None
+    currency: str = "NGN"
+
+    opening_balance: Decimal | None = None
+    closing_balance: Decimal | None = None
+    # Totals are required — an extraction that cannot produce them is not
+    # safe to trust, so we surface it as an error rather than defaulting
+    # to zero (which would look like a clean zero-activity statement).
+    total_credits: Decimal
+    total_debits: Decimal
+
+    transactions: list[BankTransaction] = Field(default_factory=list)
+
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    notes: str | None = None
+
+
+class ReceiptItem(BaseModel):
+    description: str
+    quantity: Decimal | None = None
+    unit_price: Decimal | None = None
+    total: Decimal
+
+
+class ReceiptExtraction(BaseModel):
+    """Structured output from a receipt or invoice image.
+
+    Useful for: business-expense substantiation, input VAT credits for
+    SMEs (v2), and documentation of life insurance, NHIS, NHF, or medical
+    payments that support individual reliefs.
+    """
+
+    vendor_name: str | None = None
+    vendor_tin: str | None = None
+    receipt_number: str | None = None
+    issue_date: date | None = None
+
+    currency: str = "NGN"
+    subtotal: Decimal | None = None
+    vat_amount: Decimal | None = None
+    total_amount: Decimal
+
+    receipt_type: Literal[
+        "purchase",
+        "service",
+        "utility",
+        "rent",
+        "insurance",
+        "medical",
+        "donation",
+        "tax_payment",
+        "other",
+    ] = "other"
+
+    items: list[ReceiptItem] = Field(default_factory=list)
+
+    likely_tax_deductible: bool | None = None
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    notes: str | None = None
+
+
 class DocumentRecord(BaseModel):
     """API response shape for a stored document."""
 

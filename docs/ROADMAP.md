@@ -101,8 +101,8 @@ PAYE worksheet.
 - [x] **P3.3** — `documents/extractor.py` — Claude Sonnet 4.6 Vision wrapper with forced tool-use for structured output
 - [x] **P3.4** — Payslip Pydantic schema + `DocumentKind` literal + `DocumentRecord` API response
 - [x] **P3.5** — Extractor tests (mocked VisionClient) + endpoint tests (fake extractor, InMemoryStorage)
-- [ ] **P3.6** — Bank statement schema + extractor
-- [ ] **P3.7** — Receipt schema + extractor
+- [x] **P3.6** — Bank statement schema + extractor. `BankStatementExtraction` with per-transaction direction/category enums; `VisionExtractor.extract_bank_statement()` forces `submit_bank_statement_extraction`; account number stored as last-4 only (NDPR minimization).
+- [x] **P3.7** — Receipt schema + extractor. `ReceiptExtraction` with typed receipt_type (insurance, medical, utility, rent, donation, …), items, tax-deductibility hint; forced-tool via `submit_receipt_extraction`.
 - [x] **P3.8** — Tool registration: `list_recent_documents` + `read_document_extraction` for Mai
 - [x] **P3.9** — Web: upload widget in chat (📎 picker + page-wide drag-and-drop). Uploads via `POST /v1/documents`, then injects a "I just uploaded…" nudge into the conversation so Mai calls `read_document_extraction` + `calc_paye`.
 - [x] **P3.10** — End-to-end browser demo documented in `README.md` (run steps). Live Claude calls still require a valid `ANTHROPIC_API_KEY`; the plumbing is verified green by 87 unit tests.

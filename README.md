@@ -9,10 +9,19 @@ product — conversation drives filing.
 
 | Taxpayer class | Status |
 |---|---|
-| Individuals (PAYE / PIT 2026) | ✅ live |
+| Individuals (PAYE / PIT 2026) | ✅ live — calc, audit, pack (PDF + JSON), review UI |
 | Sole proprietors / freelancers | ✅ via the PIT path (income kind = `self_employment`) |
 | Companies (CIT / VAT / MBS e-invoicing) | ❌ Phase 9 — blocked on 2026 CIT bands, WHT rates, and the 55-field UBL 3.0 list |
-| NGOs / tax-exempt bodies | ❌ not yet modelled — needs owner input on NRS exemption + reporting |
+| NGOs / tax-exempt bodies | ❌ Phase 11 — needs owner input on NRS exemption + reporting |
+
+### Document ingestion (Claude Vision, forced structured output)
+
+| Kind | Status |
+|---|---|
+| Payslip | ✅ extracts gross, PAYE, pension, NHIS, CRA, net pay, other lines |
+| Bank statement | ✅ per-transaction categorization (salary / rent / pension / NHIS / NHF / tax payment / …); account-number last-4 only |
+| Receipt / invoice | ✅ typed by receipt_type (insurance / medical / utility / rent / donation / …), supports reliefs and expense substantiation |
+| CAC certificate | ❌ scaffolded — schema lands with Phase 9 |
 
 See `docs/DECISIONS.md` (ADR-0002) for the locked v1 scope and
 `docs/DEPLOYMENT.md §7` for how to expand coverage.

@@ -17,10 +17,15 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Document
 from app.documents.extractor import VisionExtractor
-from app.documents.schemas import DocumentKind, PayslipExtraction
+from app.documents.schemas import DocumentKind
 from app.documents.storage import StorageAdapter
 
 log = logging.getLogger("mai_filer.documents")
+
+# Kinds that Mai auto-extracts on upload. Other kinds (e.g., cac_certificate)
+# are stored but not yet extracted; `read_document_extraction` returns null
+# until a later phase wires up a schema.
+EXTRACTABLE_KINDS: frozenset[DocumentKind] = frozenset({"payslip", "bank_statement", "receipt"})
 
 
 # Content types Claude Vision accepts that we allow for uploads.
@@ -87,24 +92,32 @@ def upload_and_extract(
     session.add(document)
     session.flush()
 
-    if run_extraction and kind == "payslip":
+    if run_extraction and kind in EXTRACTABLE_KINDS:
         try:
-            extraction, _ = extractor.extract_payslip(
-                file_bytes=file_bytes,
-                content_type=content_type,
-                filename=filename,
-            )
+            if kind == "payslip":
+                extraction, _ = extractor.extract_payslip(
+                    file_bytes=file_bytes,
+                    content_type=content_type,
+                    filename=filename,
+                )
+            elif kind == "bank_statement":
+                extraction, _ = extractor.extract_bank_statement(
+                    file_bytes=file_bytes,
+                    content_type=content_type,
+                    filename=filename,
+                )
+            else:  # "receipt"
+                extraction, _ = extractor.extract_receipt(
+                    file_bytes=file_bytes,
+                    content_type=content_type,
+                    filename=filename,
+                )
             document.extraction_json = extraction.model_dump(mode="json")
             document.extracted_at = datetime.now(timezone.utc)
         except Exception as exc:  # surface; Mai can see the error and ask user to retry
-            log.warning("payslip extraction failed: %s", exc)
+            log.warning("%s extraction failed: %s", kind, exc)
             document.extraction_error = str(exc)
 
     session.commit()
     session.refresh(document)
     return document
-
-
-def _extraction_from_payslip_model(extraction: PayslipExtraction) -> dict:
-    """Helper for tests — round-trip through JSON so it matches storage."""
-    return extraction.model_dump(mode="json")

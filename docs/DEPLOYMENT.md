@@ -1,15 +1,16 @@
 # Mai Filer — Railway Deployment
 
-> **Scope v1 (live on Railway)**: individual Nigerian taxpayers filing
-> PIT / PAYE for the 2026 year. Companies (CIT / VAT / MBS e-invoicing)
-> and NGOs are **not** included in this deployment — see ADR-0002 in
-> `docs/DECISIONS.md` and the "Expanding coverage" section below.
+> **Railway is the demo / preview environment — not the production
+> destination.** Per owner direction, live taxpayer data will be hosted
+> on AWS or Azure (details TBD — see "Production hosting" below). Use
+> Railway for PR previews, demos, and stakeholder walkthroughs. Never
+> point real NINs or filings at this deployment.
 >
-> **Data residency reminder** (per `docs/COMPLIANCE.md §4`): production
-> taxpayer data must sit inside Nigeria. Before accepting real NINs /
-> filings, move the Postgres + object storage onto Galaxy Backbone or
-> Rack Centre. Railway's default regions are outside Nigeria; using
-> them for real taxpayer data is a NITDA violation.
+> **Scope v1**: individual Nigerian taxpayers filing PIT / PAYE for the
+> 2026 year, plus payslip / bank statement / receipt ingestion. Companies
+> (CIT / VAT / MBS e-invoicing) and NGOs are **not** in this deployment —
+> see ADR-0002 in `docs/DECISIONS.md` and the "Expanding coverage"
+> section below.
 
 ---
 
@@ -108,7 +109,41 @@ succeed without the API if the DB is briefly down; the chat surfaces a
    hit this, document the limit rather than raising blindly — we keep
    small limits on NDPR-sensitive uploads by design.
 
-## 7. Expanding coverage (companies + NGOs)
+## 7. Production hosting (AWS or Azure)
+
+Per owner direction, **production runs on AWS or Azure**, not Railway.
+Neither cloud offers a Lagos / Abuja region at the time of writing, so
+NITDA data-residency compliance (see `docs/COMPLIANCE.md §4`) requires
+one of:
+
+- **AWS**: Outposts or Local Zones in-country, or a dedicated Nigerian
+  data-centre partner (e.g. MainOne / MTN / Galaxy Backbone) with AWS
+  Direct Connect for cross-region control plane.
+- **Azure**: Stack Edge / Stack Hub in-country, or Azure Arc-enabled
+  servers in a Nigerian co-lo.
+- **Nearest standard regions** (not NITDA-compliant for live taxpayer
+  data, useful only for non-PII workloads): AWS `af-south-1` (Cape Town)
+  and Azure **UAE North**.
+
+The application surface is intentionally cloud-portable:
+
+- **State** is Postgres + S3-compatible object storage. Both are
+  available on AWS (RDS + S3) and Azure (Flexible Postgres + Blob).
+- **Compute** is a plain ASGI Python app (`uvicorn app.main:app`) and a
+  Next.js server. Both run on AWS ECS / EKS / App Runner or Azure
+  Container Apps / App Service.
+- **Secrets** move from Railway env vars to AWS Secrets Manager / Azure
+  Key Vault; our `Settings` class already reads from env and is
+  provider-agnostic.
+- **Alembic migrations** run as a release task on AWS (CodeDeploy lifecycle
+  hook or ECS task) or Azure (App Service deploy hook). Same
+  `alembic upgrade head` command either way.
+
+A full production hosting guide will land in `docs/PRODUCTION.md` once
+the owner selects AWS or Azure and the Nigerian in-country partner. For
+now this Railway deployment is the preview environment only.
+
+## 8. Expanding coverage (companies + NGOs)
 
 The Railway deployment ships the **individual** flow only. To expand:
 

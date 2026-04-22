@@ -12,7 +12,13 @@ from app.documents.extractor import (
     ExtractionUsage,
     VisionExtractor,
 )
-from app.documents.schemas import PayslipExtraction
+from app.documents.schemas import (
+    BankStatementExtraction,
+    BankTransaction,
+    PayslipExtraction,
+    ReceiptExtraction,
+    ReceiptItem,
+)
 from app.documents.storage import InMemoryStorage
 from app.main import app
 
@@ -20,24 +26,55 @@ pytestmark = pytest.mark.usefixtures("override_db")
 
 
 class FakeExtractor(VisionExtractor):
-    """VisionExtractor that returns a preset extraction, no Claude involved."""
+    """VisionExtractor that returns a preset extraction per kind; no Claude."""
 
     def __init__(
-        self, extraction: PayslipExtraction | Exception | None = None
+        self,
+        payslip: PayslipExtraction | Exception | None = None,
+        bank_statement: BankStatementExtraction | Exception | None = None,
+        receipt: ReceiptExtraction | Exception | None = None,
     ) -> None:
-        self._extraction = extraction
+        self._payslip = payslip
+        self._bank_statement = bank_statement
+        self._receipt = receipt
         self.calls: list[dict] = []
+
+    def _record(self, kind: str, file_bytes: bytes, content_type: str, filename):
+        self.calls.append(
+            {
+                "kind": kind,
+                "size": len(file_bytes),
+                "content_type": content_type,
+                "filename": filename,
+            }
+        )
 
     def extract_payslip(
         self, *, file_bytes: bytes, content_type: str, filename: str | None = None
     ):
-        self.calls.append(
-            {"size": len(file_bytes), "content_type": content_type, "filename": filename}
-        )
-        if isinstance(self._extraction, Exception):
-            raise self._extraction
-        assert self._extraction is not None
-        return self._extraction, ExtractionUsage(input_tokens=100, output_tokens=50)
+        self._record("payslip", file_bytes, content_type, filename)
+        if isinstance(self._payslip, Exception):
+            raise self._payslip
+        assert self._payslip is not None, "no payslip extraction configured"
+        return self._payslip, ExtractionUsage(input_tokens=100, output_tokens=50)
+
+    def extract_bank_statement(
+        self, *, file_bytes: bytes, content_type: str, filename: str | None = None
+    ):
+        self._record("bank_statement", file_bytes, content_type, filename)
+        if isinstance(self._bank_statement, Exception):
+            raise self._bank_statement
+        assert self._bank_statement is not None, "no bank_statement extraction configured"
+        return self._bank_statement, ExtractionUsage(input_tokens=200, output_tokens=120)
+
+    def extract_receipt(
+        self, *, file_bytes: bytes, content_type: str, filename: str | None = None
+    ):
+        self._record("receipt", file_bytes, content_type, filename)
+        if isinstance(self._receipt, Exception):
+            raise self._receipt
+        assert self._receipt is not None, "no receipt extraction configured"
+        return self._receipt, ExtractionUsage(input_tokens=80, output_tokens=40)
 
 
 def _happy_extraction() -> PayslipExtraction:
@@ -52,6 +89,36 @@ def _happy_extraction() -> PayslipExtraction:
         cra_amount=Decimal("100000"),
         net_pay=Decimal("350400"),
         confidence=0.92,
+    )
+
+
+def _happy_bank_statement() -> BankStatementExtraction:
+    return BankStatementExtraction(
+        bank_name="GTBank",
+        account_holder_name="Chidi Okafor",
+        account_number_last4="3456",
+        total_credits=Decimal("500000"),
+        total_debits=Decimal("190000"),
+        transactions=[
+            BankTransaction(
+                description="GLOBACOM SALARY MARCH",
+                direction="credit",
+                amount=Decimal("420000"),
+                category="salary",
+            )
+        ],
+        confidence=0.88,
+    )
+
+
+def _happy_receipt() -> ReceiptExtraction:
+    return ReceiptExtraction(
+        vendor_name="AXA Mansard",
+        total_amount=Decimal("180000"),
+        receipt_type="insurance",
+        items=[ReceiptItem(description="Life cover Q1", total=Decimal("180000"))],
+        likely_tax_deductible=True,
+        confidence=0.95,
     )
 
 
@@ -135,19 +202,65 @@ def test_upload_surfaces_extraction_error_without_failing_upload() -> None:
         app.dependency_overrides.clear()
 
 
-def test_non_payslip_kinds_are_stored_without_extraction() -> None:
-    extractor = FakeExtractor(_happy_extraction())
+def test_upload_bank_statement_returns_extraction() -> None:
+    """P3.6 — bank statement upload runs the dedicated extractor."""
+    extractor = FakeExtractor(bank_statement=_happy_bank_statement())
     _override(extractor)
     try:
         client = TestClient(app)
         response = client.post(
             "/v1/documents",
-            files={"file": ("receipt.jpg", b"\xff\xd8\xff...", "image/jpeg")},
+            files={
+                "file": ("march-statement.pdf", b"%PDF-1.4 ...", "application/pdf")
+            },
+            data={"kind": "bank_statement"},
+        )
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["kind"] == "bank_statement"
+        assert body["extraction"]["bank_name"] == "GTBank"
+        assert body["extraction"]["account_number_last4"] == "3456"
+        assert body["extraction"]["transactions"][0]["category"] == "salary"
+        assert extractor.calls[0]["kind"] == "bank_statement"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_upload_receipt_returns_extraction() -> None:
+    """P3.7 — receipt upload runs the receipt extractor."""
+    extractor = FakeExtractor(receipt=_happy_receipt())
+    _override(extractor)
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/v1/documents",
+            files={"file": ("insurance.jpg", b"\xff\xd8\xff...", "image/jpeg")},
             data={"kind": "receipt"},
+        )
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["kind"] == "receipt"
+        assert body["extraction"]["vendor_name"] == "AXA Mansard"
+        assert body["extraction"]["receipt_type"] == "insurance"
+        assert body["extraction"]["likely_tax_deductible"] is True
+        assert extractor.calls[0]["kind"] == "receipt"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_unknown_kind_is_stored_without_extraction() -> None:
+    """Kinds outside EXTRACTABLE_KINDS are persisted but not auto-extracted."""
+    extractor = FakeExtractor(_happy_extraction())  # payslip slot, not called
+    _override(extractor)
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/v1/documents",
+            files={"file": ("cac.pdf", b"%PDF-1.4 ...", "application/pdf")},
+            data={"kind": "cac_certificate"},
         )
         assert response.status_code == 201
         body = response.json()
-        # Receipt extraction lands in P3.6; for now it's stored untouched.
         assert body["extraction"] is None
         assert extractor.calls == []
     finally:
