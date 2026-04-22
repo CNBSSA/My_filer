@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -130,5 +130,68 @@ class Filing(Base):
         DateTime(timezone=True), nullable=False, default=_now
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
+
+
+class ConsentLog(Base):
+    """Append-only log of every identity verification attempt.
+
+    Per `docs/COMPLIANCE.md §6`, we record actor + purpose + consent
+    reference + outcome for each NIN query. Rows are never updated or
+    deleted; retention follows NTAA rules (owner to confirm exact period).
+    """
+
+    __tablename__ = "consent_log"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    thread_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("threads.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    nin_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    aggregator: Mapped[str] = mapped_column(String(32), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(128), nullable=False)
+    consent_granted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    # "verified" | "rejected" | "error"
+    name_match_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
+class IdentityRecord(Base):
+    """Latest verified identity for a NIN hash.
+
+    Raw NIN lives only as a Fernet ciphertext; the hash is the primary
+    lookup key. Name fields here are whatever the aggregator returned —
+    used by Audit Shield's name-match check and by Mai's conversational
+    flow ("Welcome back, Chidi.") without re-calling the aggregator.
+    """
+
+    __tablename__ = "identity_records"
+
+    nin_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    nin_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    aggregator: Mapped[str] = mapped_column(String(32), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    middle_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    date_of_birth: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    gender: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    state_of_origin: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    verified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+    last_verified_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
     )

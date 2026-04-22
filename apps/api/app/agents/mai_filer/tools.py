@@ -23,6 +23,9 @@ from app.db.models import Document, Filing
 from app.db.session import get_session
 from app.documents.storage import get_default_storage
 from app.filing.service import PackNotReadyError, audit_filing, generate_pack
+from app.identity.base import AggregatorError
+from app.identity.factory import build_identity_service
+from app.identity.service import ConsentRequiredError
 from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
 from app.tax.pit import calculate_pit_2026
@@ -307,6 +310,40 @@ def _run_prepare_filing_pack(filing_id: str) -> dict[str, Any]:
         session_gen.close()
 
 
+def _run_verify_identity(
+    nin: str,
+    consent: bool,
+    declared_name: str | None = None,
+    purpose: str = "tax_filing",
+) -> dict[str, Any]:
+    """Look up a NIN via the configured aggregator (Dojah by default).
+
+    This tool is the ONLY place Mai should query a NIN. It enforces the
+    `consent` flag, hashes the NIN, vaults the ciphertext on success, and
+    writes an append-only consent_log row regardless of outcome.
+    """
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        service = build_identity_service(session)
+        try:
+            result = service.verify_taxpayer(
+                nin=nin,
+                consent=consent,
+                declared_name=declared_name,
+                purpose=purpose,
+            )
+        except ConsentRequiredError as exc:
+            return {"error": str(exc), "reason": "consent_required"}
+        except ValueError as exc:
+            return {"error": str(exc), "reason": "invalid_input"}
+        except AggregatorError as exc:
+            return {"error": str(exc), "reason": "aggregator_unavailable"}
+        return result.to_dict()
+    finally:
+        session_gen.close()
+
+
 def _run_list_recent_filings(limit: int = 10) -> dict[str, Any]:
     """List the most recent filings — useful when a user refers to 'my filing'."""
     session_gen = get_session()
@@ -548,6 +585,45 @@ TOOLS: tuple[Tool, ...] = (
             },
         },
         run=_run_list_recent_filings,
+    ),
+    Tool(
+        name="verify_identity",
+        description=(
+            "Look up a NIN via the configured identity aggregator (Dojah by "
+            "default) and return the NIMC identity record. You MUST only call "
+            "this after the taxpayer has explicitly granted consent in the "
+            "conversation — set `consent=true` only if you have heard their "
+            "yes. If you also pass `declared_name`, the service compares it "
+            "against the NIN record's name and returns a match status "
+            "(strict / fuzzy / mismatch) that you should surface to the user. "
+            "A consent-log row is written regardless of outcome (this is a "
+            "regulatory requirement — NDPR / NDPC)."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "nin": {
+                    "type": "string",
+                    "description": "11-digit National Identification Number.",
+                    "pattern": "^[0-9]{11}$",
+                },
+                "consent": {
+                    "type": "boolean",
+                    "description": "MUST be true. Set only after explicit user consent.",
+                },
+                "declared_name": {
+                    "type": ["string", "null"],
+                    "description": "The name the user told you — used for name-match.",
+                },
+                "purpose": {
+                    "type": "string",
+                    "description": "Short label for the consent log, e.g. 'tax_filing'.",
+                    "default": "tax_filing",
+                },
+            },
+            "required": ["nin", "consent"],
+        },
+        run=_run_verify_identity,
     ),
 )
 

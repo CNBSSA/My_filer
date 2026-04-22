@@ -122,20 +122,20 @@ submission.
 - [x] **P4.8** — Web: `/filings/[id]` review page with Audit Shield summary, run-audit / prepare-pack buttons, taxpayer + computation + sources breakdown, PDF/JSON download links
 - [ ] **P4.9** — **[deferred to v2 SME]** UBL 3.0 + 55-field schema — blocked on owner's 55-field list
 
-## PHASE 5 — NIN Verification (Dojah default)
+## PHASE 5 — NIN Verification (Dojah default) ✅ BACKEND COMPLETE
 
 Goal: verified individual identity with NDPR-compliant consent.
 
-- [ ] **P5.1** — `identity/base.py` — `IdentityAggregator` abstract base
-- [ ] **P5.2** — `identity/dojah.py` adapter (default, ADR-0003)
-- [ ] **P5.3** — `identity/seamfix.py` adapter
-- [ ] **P5.4** — `identity/prembly.py` adapter
-- [ ] **P5.5** — `identity/service.py` — `verify_taxpayer(nin, consent)` with 24–72h NIN-TIN sync retry + exponential backoff
-- [ ] **P5.6** — NIN hash util (salted SHA-256) + encrypted-vault writer
-- [ ] **P5.7** — `consent_log` table (append-only); every NIN call writes a row
-- [ ] **P5.8** — Name-match util (NIN record vs. return, fuzzy + strict modes)
-- [ ] **P5.9** — Tool registration: `verify_identity(nin)` for Mai
-- [ ] **P5.10** — Web: NIN capture UI with explicit consent checkbox **rendered in the user's selected Nigerian language**
+- [x] **P5.1** — `identity/base.py` — `IdentityAggregator` Protocol + `NINVerification` dataclass + `AggregatorError` escalation
+- [x] **P5.2** — `identity/dojah.py` adapter (default per ADR-0003). `HttpClient` Protocol seam for hermetic tests; 2xx maps to verification, 4xx returns invalid, 5xx / transport raises `AggregatorError`.
+- [x] **P5.3** — `identity/seamfix.py` (stub — raises `AggregatorError` until sandbox creds arrive)
+- [x] **P5.4** — `identity/prembly.py` (stub — same pattern as Seamfix)
+- [x] **P5.5** — `identity/service.py` — `verify_taxpayer()` orchestrates consent check → hash → retry-with-backoff `(2, 4, 8, 16s)` per KNOWLEDGE_BASE §10 → vault write → name match → append-only consent log
+- [x] **P5.6** — `identity/vault.py` — HMAC-SHA256 hash (salt + NIN → hex digest) + Fernet ciphertext (32-byte key auto-derived from env)
+- [x] **P5.7** — `consent_log` + `identity_records` tables; alembic `0004_identity_consent` verified on SQLite
+- [x] **P5.8** — `identity/name_match.py` — `strict_match` + `fuzzy_match` tolerant of middle-name order, accents (NFKD + strip combining), 1-char typos, punctuation
+- [x] **P5.9** — Mai tool: `verify_identity(nin, consent, declared_name, purpose)` — 12 tools total in the registry now
+- [ ] **P5.10** — Web: NIN capture UI with explicit consent checkbox rendered in the user's selected Nigerian language
 - [ ] **P5.11** — End-to-end: user enters NIN, consent captured, Mai verifies, filing proceeds
 
 ## PHASE 6 — NRS Sandbox Handshake (Live Path Prep)

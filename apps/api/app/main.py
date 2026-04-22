@@ -11,6 +11,7 @@ from app import __version__
 from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
 from app.api.filings import router as filings_router
+from app.api.identity import router as identity_router
 from app.config import get_settings
 
 settings = get_settings()
@@ -36,6 +37,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(filings_router)
+app.include_router(identity_router)
 
 
 @app.get("/health", tags=["ops"])

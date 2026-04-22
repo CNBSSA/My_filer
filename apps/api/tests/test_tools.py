@@ -32,6 +32,7 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "audit_filing",
         "prepare_filing_pack",
         "list_recent_filings",
+        "verify_identity",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -352,6 +353,48 @@ def test_prepare_filing_pack_tool_refuses_red_audit(db_session, override_db) -> 
         assert payload.get("audit_status") == "red"
     finally:
         set_default_storage(InMemoryStorage())
+
+
+def test_verify_identity_tool_happy_path(db_session, override_db, monkeypatch) -> None:
+    """P5.9 — verify_identity tool invokes the identity service and returns
+    a JSON-safe result dict with verified + name_match status."""
+    from tests.test_identity_service import ScriptedAggregator, _happy_verification
+    from app.identity.service import IdentityService
+
+    def _fake_build(session):
+        return IdentityService(
+            aggregator=ScriptedAggregator([_happy_verification()]),
+            session=session,
+            hash_salt="tool-salt",
+            vault_key="tool-vault-key-long-enough",
+            sleep=lambda _s: None,
+        )
+
+    monkeypatch.setattr(
+        "app.agents.mai_filer.tools.build_identity_service", _fake_build
+    )
+    payload = json.loads(
+        run_tool(
+            "verify_identity",
+            {
+                "nin": "12345678901",
+                "consent": True,
+                "declared_name": "Chidi Okafor",
+            },
+        )
+    )
+    assert payload["verified"] is True
+    assert payload["full_name"] == "Chidi Emeka Okafor"
+    assert payload["name_match_status"] == "fuzzy"
+    assert payload["consent_log_id"]
+
+
+def test_verify_identity_tool_refuses_without_consent(override_db) -> None:
+    payload = json.loads(
+        run_tool("verify_identity", {"nin": "12345678901", "consent": False})
+    )
+    assert "error" in payload
+    assert payload.get("reason") == "consent_required"
 
 
 def test_list_recent_filings_tool(db_session, override_db) -> None:
