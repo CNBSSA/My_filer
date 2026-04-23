@@ -150,15 +150,20 @@ Goal: verified individual identity with NDPR-compliant consent.
 - [x] **P6.8** — `gateway/errors.py` — 8-code catalogue (AUTH, SIGNATURE, REPLAY, NIN-NOT-FOUND, PAYLOAD, COMPUTATION, RATE-LIMIT, UPSTREAM-DOWN) with per-code severity (`retryable` / `user_fix` / `fatal`) and per-language messages; English is the fallback.
 - [x] **P6.9** — Mai Filer tool `submit_to_nrs(filing_id, language)` — 13 tools total in the registry.
 
-## PHASE 7 — Rev360 Live + Accreditation
+## PHASE 7 — Rev360 Live + Accreditation ✅ CODE + DOCS SCAFFOLDED
 
-- [ ] **P7.1** — Engage an Access Point Provider (DigiTax / UsawaConnect) per ADR-0002 pre-APP path
-- [ ] **P7.2** — NRS Developer Portal onboarding
-- [ ] **P7.3** — Production credentials via Vault / KMS
-- [ ] **P7.4** — Swap HMAC for JWT if NRS mandates post-Rev360
-- [ ] **P7.5** — Observability: Prometheus + Grafana SLAs
-- [ ] **P7.6** — NDPC DPCA audit workflow
-- [ ] **P7.7** — NITDA code-clearance package
+Owner-actions (NRS portal onboarding, APP engagement, NDPC / NITDA
+submissions) tracked in `docs/PENDING_WORK.md §1`.
+
+- [ ] **P7.1** — Engage an Access Point Provider (DigiTax / UsawaConnect) — **owner action**
+- [ ] **P7.2** — NRS Developer Portal onboarding — **owner action**
+- [x] **P7.3** — `app/secrets/` abstraction: `SecretsProvider` Protocol + `EnvSecretsProvider` (dev default) + `AWSSecretsManagerProvider` (prod, behind optional `boto3` import). `Settings.secrets_backend` + `secrets_path_prefix`; `secret()` helper resolves values with env fallback. Sensitive values (`NRS_CLIENT_SECRET`, `NIN_VAULT_KEY`, `DOJAH_*`, `JWT_SECRET`, `ANTHROPIC_API_KEY`) read through the abstraction.
+- [x] **P7.4** — `app/gateway/jwt_signing.py` + `NRSClient` scheme switch. `NRS_AUTH_SCHEME=hmac|jwt` picks the auth; tokens carry `iss`/`sub`/`aud`/`iat`/`exp`/`jti`/`sha256` claims, binding the token to the exact payload. Existing HMAC path untouched.
+- [x] **P7.5** — `app/observability/` — structured JSON logging, `CorrelationIdMiddleware` (reads / mints `X-Request-Id`, binds to logs via `contextvars`), dependency-free counters + histograms, Prometheus text-format `/metrics` endpoint.
+- [ ] **P7.6** — NDPC DPCA annual audit — **owner action** (template: `docs/NDPC_AUDIT_TEMPLATE.md`)
+- [ ] **P7.7** — NITDA clearance submission — **owner action** (template: `docs/NITDA_CLEARANCE_TEMPLATE.md`)
+- [x] **P7.8** — Production architecture + owner checklist: `docs/PRODUCTION_AWS.md` (three residency options with trade-offs, full service provisioning checklist, IAM policy JSON, env-var map, cost envelope).
+- [x] **P7.9** — Pending-work memory anchor: `docs/PENDING_WORK.md` keeps Phase 9 scaffolding, owner-action items, and deferred infra (Celery, pgvector) in one place.
 
 ## PHASE 8 — Learning Partner ✅ STRUCTURED-RECALL COMPLETE
 

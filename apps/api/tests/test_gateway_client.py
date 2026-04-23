@@ -195,3 +195,42 @@ def test_transport_exception_recovers_mid_retry() -> None:
     result = client.submit_filing({})
     assert isinstance(result, NRSResponse)
     assert result.irn == "BOUNCED-BACK"
+
+
+# ---------------------------------------------------------------------------
+# Auth scheme switch (P7.4)
+# ---------------------------------------------------------------------------
+
+
+def test_jwt_scheme_emits_bearer_token_instead_of_hmac_headers() -> None:
+    http = FakeHttp([FakeResponse(status_code=200, body={"irn": "JWT-OK"})])
+    client = NRSClient(
+        base_url="https://api.nrs.gov.ng/v1",
+        credentials=CREDS,
+        http=http,
+        sleep=lambda _s: None,
+        now_factory=lambda: "2026-04-22T10:00:00.000Z",
+        auth_scheme="jwt",
+        jwt_algorithm="HS256",
+        jwt_private_key="jwt-shared-secret",
+        jwt_issuer="mai-filer",
+    )
+    client.submit_filing({"tax_year": 2026})
+    headers = http.calls[0]["headers"]
+    # HMAC header is absent; Bearer token present.
+    assert "X-API-Signature" not in headers
+    assert headers["Authorization"].startswith("Bearer ")
+    # And the payload binding claim in the token matches what was sent.
+    import hashlib
+
+    import jwt as pyjwt
+
+    token = headers["Authorization"].removeprefix("Bearer ").strip()
+    claims = pyjwt.decode(
+        token,
+        "jwt-shared-secret",
+        algorithms=["HS256"],
+        audience="https://api.nrs.gov.ng/v1",
+    )
+    payload = http.calls[0]["content"].decode("utf-8")
+    assert claims["sha256"] == hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     nrs_client_id: str = ""
     nrs_client_secret: str = ""
     nrs_business_id: str = ""
+    # "hmac" today; switch to "jwt" after NRS Rev360 cutover if needed.
+    nrs_auth_scheme: Literal["hmac", "jwt"] = "hmac"
+    nrs_jwt_algorithm: str = "HS256"
+    nrs_jwt_private_key: str = ""  # PEM for RS256; shared secret for HS256
 
     identity_aggregator: Literal["dojah", "seamfix", "prembly"] = "dojah"
     dojah_api_key: str = ""
@@ -57,8 +61,31 @@ class Settings(BaseSettings):
     # Example: "https://mai-filer-web.up.railway.app,http://localhost:3000"
     cors_allow_origins: str = "http://localhost:3000"
 
+    # Secrets backend: "env" (dev), "aws" (prod). When "aws",
+    # `SECRETS_PATH_PREFIX` + `AWS_REGION` must be set; `boto3` must be
+    # installed. See `app/secrets/`.
+    secrets_backend: Literal["env", "aws"] = "env"
+    secrets_path_prefix: str = ""
+
+    # Observability. The correlation-ID header is read from inbound
+    # requests; if absent, the middleware generates a UUID.
+    correlation_id_header: str = "X-Request-Id"
+
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    def resolve_secret(self, key: str) -> str:
+        """Return the current value for `key`, preferring Secrets Manager
+        when configured. Falls through to the Pydantic-parsed attribute
+        for backward-compat with env-file-driven dev.
+        """
+        # Local import avoids a config <-> secrets import cycle at module load.
+        from app.secrets import secret
+
+        value = secret(key)
+        if value is not None:
+            return value
+        return getattr(self, key.lower(), "") or ""
 
 
 @lru_cache

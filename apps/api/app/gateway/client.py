@@ -26,6 +26,7 @@ from typing import Any, Callable, Protocol
 
 import httpx
 
+from app.gateway.jwt_signing import sign_jwt
 from app.gateway.signing import sign_request
 from app.gateway.timestamps import iso_20022_now
 
@@ -119,6 +120,10 @@ class NRSClient:
         backoff_seconds: tuple[int, ...] = DEFAULT_BACKOFF_SECONDS,
         sleep: Callable[[float], None] = time.sleep,
         now_factory: Callable[[], str] = iso_20022_now,
+        auth_scheme: str = "hmac",
+        jwt_algorithm: str = "HS256",
+        jwt_private_key: str = "",
+        jwt_issuer: str = "mai-filer",
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._credentials = credentials
@@ -127,6 +132,40 @@ class NRSClient:
         self._backoff = backoff_seconds
         self._sleep = sleep
         self._now_factory = now_factory
+        self._auth_scheme = auth_scheme.lower()
+        self._jwt_algorithm = jwt_algorithm
+        self._jwt_private_key = jwt_private_key
+        self._jwt_issuer = jwt_issuer
+
+    def _auth_headers(
+        self, *, payload: str, timestamp: str, audience: str
+    ) -> dict[str, str]:
+        """Build the outbound request headers for the configured auth scheme."""
+        base = {
+            "Content-Type": "application/json",
+            "X-API-Key": self._credentials.client_id,
+            "X-API-Business-Id": self._credentials.business_id,
+            "X-API-Timestamp": timestamp,
+        }
+        if self._auth_scheme == "jwt":
+            key = self._jwt_private_key or self._credentials.client_secret
+            token = sign_jwt(
+                payload=payload,
+                business_id=self._credentials.business_id,
+                issuer=self._jwt_issuer,
+                audience=audience,
+                secret_or_private_key=key,
+                algorithm=self._jwt_algorithm,
+            )
+            base["Authorization"] = f"Bearer {token}"
+            return base
+        # Default: HMAC-SHA256 per KNOWLEDGE_BASE §9.
+        base["X-API-Signature"] = sign_request(
+            payload=payload,
+            timestamp=timestamp,
+            secret=self._credentials.client_secret,
+        )
+        return base
 
     def submit_filing(
         self, pack: dict[str, Any], *, path: str = "/efiling/pit/submit"
@@ -147,18 +186,7 @@ class NRSClient:
 
         for attempt in range(len(self._backoff) + 1):
             timestamp = self._now_factory()
-            signature = sign_request(
-                payload=payload,
-                timestamp=timestamp,
-                secret=self._credentials.client_secret,
-            )
-            headers = {
-                "Content-Type": "application/json",
-                "X-API-Key": self._credentials.client_id,
-                "X-API-Business-Id": self._credentials.business_id,
-                "X-API-Timestamp": timestamp,
-                "X-API-Signature": signature,
-            }
+            headers = self._auth_headers(payload=payload, timestamp=timestamp, audience=self._base_url)
 
             try:
                 response = self._http.post(
@@ -224,15 +252,24 @@ def _parse_rejection(response: HttpResponse) -> NRSRejection:
 
 def build_default_nrs_client() -> NRSClient:
     """Factory reading credentials from settings. Raises `NRSAuthError`
-    only on actual submission, not at construction."""
+    only on actual submission, not at construction.
+
+    Secrets are resolved via the `secret()` helper so an AWS Secrets
+    Manager backend picks up prod values without code changes.
+    """
     from app.config import get_settings
+    from app.secrets import secret
 
     s = get_settings()
     return NRSClient(
         base_url=s.nrs_base_url,
         credentials=NRSCredentials(
-            client_id=s.nrs_client_id,
-            client_secret=s.nrs_client_secret,
-            business_id=s.nrs_business_id,
+            client_id=secret("nrs_client_id") or s.nrs_client_id,
+            client_secret=secret("nrs_client_secret") or s.nrs_client_secret,
+            business_id=secret("nrs_business_id") or s.nrs_business_id,
         ),
+        auth_scheme=s.nrs_auth_scheme,
+        jwt_algorithm=s.nrs_jwt_algorithm,
+        jwt_private_key=secret("nrs_jwt_private_key") or s.nrs_jwt_private_key,
+        jwt_issuer=s.jwt_issuer,
     )

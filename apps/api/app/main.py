@@ -1,7 +1,12 @@
 """Mai Filer API entrypoint.
 
-The FastAPI app exposes a minimal /health endpoint at Phase 0. Future phases
-wire the chat, documents, filing, identity, and gateway routers.
+Mounts every phase router plus the observability surface:
+
+  * CORS middleware (env-driven allow-list).
+  * CorrelationIdMiddleware — reads / mints `X-Request-Id`, binds it to
+    logs via a contextvars context.
+  * /health — liveness probe.
+  * /metrics — Prometheus text-exposition format.
 """
 
 from fastapi import FastAPI
@@ -14,8 +19,16 @@ from app.api.filings import router as filings_router
 from app.api.identity import router as identity_router
 from app.api.memory import router as memory_router
 from app.config import get_settings
+from app.observability import (
+    CorrelationIdMiddleware,
+    configure_json_logging,
+    metrics_router,
+)
 
 settings = get_settings()
+
+# Configure structured logging before anything else prints.
+configure_json_logging(level=settings.log_level)
 
 app = FastAPI(
     title="Mai Filer API",
@@ -27,6 +40,12 @@ app = FastAPI(
     version=__version__,
 )
 
+# Middleware order: outermost is CORS (pre-flight short-circuit), then
+# correlation ID so every request — including the pre-flighted one — has
+# an ID bound when any downstream log fires.
+app.add_middleware(
+    CorrelationIdMiddleware, header=settings.correlation_id_header
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins(),
@@ -40,6 +59,7 @@ app.include_router(documents_router)
 app.include_router(filings_router)
 app.include_router(identity_router)
 app.include_router(memory_router)
+app.include_router(metrics_router)
 
 
 @app.get("/health", tags=["ops"])
