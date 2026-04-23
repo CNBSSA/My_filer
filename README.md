@@ -5,6 +5,17 @@ product — conversation drives filing.
 
 **Start here** → [`CLAUDE.md`](./CLAUDE.md)
 
+## CI
+
+Every push to `main` or `claude/**` and every PR targeting `main` runs:
+
+- **backend** — `pytest` + Alembic migration chain verification against SQLite
+- **web** — `next build` (includes type-check) + `test:a11y` (WCAG 2.2 AA)
+
+Both must be green. See [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)
+for the definition and [`docs/ACCESSIBILITY.md`](./docs/ACCESSIBILITY.md) for
+how to mark the checks required on `main` via branch protection.
+
 ## Current coverage
 
 | Taxpayer class | Status |
