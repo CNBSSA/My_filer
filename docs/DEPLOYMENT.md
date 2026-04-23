@@ -29,11 +29,22 @@ The web service talks to the API service over the public HTTPS URL.
 
 ## 2. First-time setup on Railway
 
-1. In Railway, create a new project from the GitHub repo `cnbssa/my_filer`,
-   tracking the `main` branch.
-2. Add two services from the same repo:
-   - **API**: Root directory = `apps/api`.
-   - **Web**: Root directory = `apps/web`.
+Both services build from **Dockerfiles** checked into the repo
+(`apps/api/Dockerfile`, `apps/web/Dockerfile`) with `railway.json`
+declaring `"builder": "DOCKERFILE"`. This sidesteps Railway's Railpack
+auto-detection, which fails on monorepos without explicit hints.
+
+1. In Railway, create a new project from the GitHub repo
+   `cnbssa/my_filer`, tracking the `main` branch.
+2. Add two services from the same repo. For each service, go to
+   **Settings → Source → Root Directory** and set:
+   - **API** service: `apps/api`
+   - **Web** service: `apps/web`
+
+   Without the Root Directory, Railway will try to build from the repo
+   root and Railpack will fail with `Error creating build plan with
+   Railpack`. This is the only must-do setup step beyond the one-click
+   repo import.
 3. Add the **Postgres** plugin to the project. Railway injects
    `DATABASE_URL` automatically into every service that requests it.
    - On the API service, add a reference variable:
@@ -45,7 +56,17 @@ The web service talks to the API service over the public HTTPS URL.
      safety the API service env can explicitly set
      `DATABASE_URL=postgresql+psycopg://${{Postgres.PGUSER}}:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}`.
 4. Set the required environment variables (next section).
+   - **Web service**: add a build-time var `NEXT_PUBLIC_API_BASE` pointing
+     at the API service's Railway URL. Next.js inlines public vars at
+     build time, so this must be set **before** the first web build.
 5. Deploy — Railway will build both services on the first push to `main`.
+
+### Troubleshooting: "Error creating build plan with Railpack"
+
+This means Railway is running Railpack against the repo root instead
+of the service's subdirectory. Set the service's Root Directory per
+step 2. The Dockerfiles are the declarative source of truth; Railway
+never has to guess.
 
 ## 3. Required environment variables
 

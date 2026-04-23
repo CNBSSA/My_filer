@@ -1,12 +1,12 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "pip install --upgrade pip && pip install -e ."
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
     "preDeployCommand": "alembic upgrade head",
-    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers",
+    "startCommand": "exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",

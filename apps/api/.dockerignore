@@ -1,0 +1,39 @@
+# Keep the build context tight — avoid shipping test / dev artefacts.
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.tox
+.coverage
+coverage.xml
+.venv
+venv
+env
+
+# Local DB snapshots
+*.db
+*.sqlite
+*.sqlite3
+
+# Build artefacts
+dist
+build
+*.egg-info
+node_modules
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+
+# Secrets never cross into the image
+.env
+.env.*
+!.env.example
+
+# Tests are not needed in the runtime image. Uncomment the next line
+# once CI is comfortable running pytest before the Docker build:
+# tests
