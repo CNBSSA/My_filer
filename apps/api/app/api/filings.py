@@ -161,6 +161,10 @@ async def download_pdf(
 
 class SubmitRequest(BaseModel):
     language: str = "en"
+    # When true, enqueue the submission to a Celery worker instead of
+    # running it inline on the request thread. Falls back to inline if
+    # CELERY_ENABLED is false, so the flag is always safe to pass.
+    async_: bool = False
 
 
 @router.post("/{filing_id}/submit")
@@ -175,13 +179,33 @@ async def submit_to_nrs(
     without a real sandbox), the service runs a deterministic simulated
     submission and marks the outcome with `simulated=true`. The UI should
     render that status distinctly from a real `accepted`.
+
+    When `async_=true` AND `CELERY_ENABLED=true` AND a worker is
+    running, the filing is enqueued and the endpoint returns
+    `{queued: true, task_id: ...}`. Otherwise the submission runs inline
+    (existing behaviour) and returns `{submission: {...}}`.
     """
+    body = body or SubmitRequest()
     filing = _load(session, filing_id)
-    language = (body or SubmitRequest()).language
+
+    # Opportunistic async path — only when the flag AND infra are set up.
+    from app.celery_app import is_async_enabled
+
+    if body.async_ and is_async_enabled():
+        from app.tasks.filing_tasks import submit_filing_to_nrs_task
+
+        result = submit_filing_to_nrs_task.delay(
+            filing_id=filing.id, language=body.language
+        )
+        return {
+            "filing": _filing_to_dict(filing),
+            "queued": True,
+            "task_id": result.id,
+        }
 
     try:
         outcome = submit_filing_to_nrs(
-            session=session, filing=filing, language=language
+            session=session, filing=filing, language=body.language
         )
     except SubmissionConfigError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc

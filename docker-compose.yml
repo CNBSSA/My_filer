@@ -47,6 +47,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # Celery worker (P6.4/P6.5). Profile-gated so `docker compose up`
+  # stays light for dev; opt in with `docker compose --profile async up`
+  # once the API image is built. Mirrors the AWS-side layout where the
+  # worker runs as a companion ECS service to the API.
+  celery-worker:
+    profiles: ["async"]
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: mai-filer-celery-worker
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      CELERY_ENABLED: "true"
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      DATABASE_URL: postgresql+psycopg://mai:mai@postgres:5432/mai_filer
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   redis-data:

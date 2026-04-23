@@ -63,7 +63,7 @@ Hard-copy of the checklist lives there. This section is the short form.
 - [ ] CloudWatch Logs + Metrics + Alarms
 - [ ] ACM cert for the production hostname
 - [ ] ECR registry for api + web Docker images
-- [ ] (Later) ElastiCache Redis for Celery when P6.4/P6.5 unblock
+- [ ] (Later) ElastiCache Redis — the Celery app + task already ship (P6.4/P6.5); flip `CELERY_ENABLED=true` + `CELERY_BROKER_URL` once provisioned, run a `celery -A app.celery_app worker` companion service
 
 ### Env vars Mai Filer reads from Secrets Manager (prod)
 - `ANTHROPIC_API_KEY`
@@ -144,7 +144,7 @@ pattern as Phase 9; flip to real rules by editing
 
 | Deferred task | What it is | Unblocks when |
 |---|---|---|
-| **P6.4 / P6.5** | Celery worker + async submission task for NRS + MBS | Redis infra is provisioned (ElastiCache Redis is already on the AWS checklist) |
+| **P6.4 / P6.5** | ✅ Celery worker + async submission task scaffolded behind `CELERY_ENABLED`; default is inline. Activates the moment ElastiCache Redis is provisioned + `CELERY_ENABLED=true` is set on the API + a `celery -A app.celery_app worker` process is running (docker-compose exposes `celery-worker` behind the `async` profile). | Redis infra provisioned on AWS/Azure |
 | **P8.10** | Portable embeddings + `VectorRecall` shipped; pgvector upgrade (direct `vector` column + ANN index on Postgres) | Postgres provisioned + volume justifies pgvector. Swap is a follow-up migration; the adapter layer does not change. |
 | **Celery dashboards** | Flower / Grafana panels for job throughput | Ships with Celery |
 | **Full UBL canonical XML signing** | xmldsig + C14N for signed UBL envelopes | NRS publishes the definitive XML schema + signing profile |

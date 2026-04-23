@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://mai:mai@localhost:5432/mai_filer"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Celery / async submission pipeline (P6.4, P6.5). Disabled by default
+    # so local dev and CI run the gateway inline; flip to true alongside
+    # Redis provisioning and a running worker process.
+    celery_enabled: bool = False
+    celery_task_eager: bool = False
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
+
     storage_endpoint: str = "http://localhost:9000"
     storage_access_key: str = "minioadmin"
     storage_secret_key: str = "minioadmin"
