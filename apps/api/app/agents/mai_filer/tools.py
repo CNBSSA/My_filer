@@ -38,7 +38,7 @@ from app.filing.ubl import UBLEnvelope, validate_envelope
 from app.memory.anomalies import detect_anomalies
 from app.memory.facts import fact_to_dict, list_facts
 from app.memory.nudges import suggest_nudges
-from app.memory.recall import KeywordRecall
+from app.memory.recall_factory import build_recall
 from app.tax.cit import calculate_cit_2026
 from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
@@ -369,9 +369,12 @@ def _run_recall_memory(
     session_gen = get_session()
     session = next(session_gen)
     try:
-        recaller = KeywordRecall(session)
+        recaller = build_recall(session)
         rows = recaller.recall(user_nin_hash=nin_hash, query=query, limit=limit)
-        return {"facts": [fact_to_dict(r) for r in rows]}
+        return {
+            "facts": [fact_to_dict(r) for r in rows],
+            "mode": recaller.__class__.__name__,
+        }
     finally:
         session_gen.close()
 

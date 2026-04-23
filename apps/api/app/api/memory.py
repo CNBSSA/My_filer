@@ -12,7 +12,7 @@ from app.db.session import get_session
 from app.memory.anomalies import detect_anomalies
 from app.memory.facts import fact_to_dict, list_facts
 from app.memory.nudges import suggest_nudges
-from app.memory.recall import KeywordRecall
+from app.memory.recall_factory import build_recall
 
 router = APIRouter(prefix="/v1/memory", tags=["memory"])
 
@@ -42,9 +42,9 @@ async def recall(
     limit: int = 10,
     session: Session = Depends(get_session),
 ) -> dict[str, Any]:
-    recaller = KeywordRecall(session)
+    recaller = build_recall(session)
     rows = recaller.recall(user_nin_hash=nin_hash, query=q, limit=limit)
-    return {"facts": [fact_to_dict(r) for r in rows]}
+    return {"facts": [fact_to_dict(r) for r in rows], "mode": recaller.__class__.__name__}
 
 
 @router.get("/anomalies")

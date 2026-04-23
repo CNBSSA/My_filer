@@ -211,6 +211,11 @@ class YearlyFact(Base):
     # "filing" | "user_declared" | "derived" | "simulated"
     label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     meta_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Semantic recall (P8.10). JSON-encoded float array; Postgres deployments
+    # can migrate to pgvector later without touching the rest of the app.
+    embedding_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    embedding_dim: Mapped[int | None] = mapped_column(Integer, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

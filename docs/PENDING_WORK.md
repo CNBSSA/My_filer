@@ -145,7 +145,7 @@ pattern as Phase 9; flip to real rules by editing
 | Deferred task | What it is | Unblocks when |
 |---|---|---|
 | **P6.4 / P6.5** | Celery worker + async submission task for NRS + MBS | Redis infra is provisioned (ElastiCache Redis is already on the AWS checklist) |
-| **P8.10** | pgvector column + `VectorRecall` semantic recall | Owner picks an embeddings vendor (Voyage AI — Anthropic's recommendation — is the default suggestion) |
+| **P8.10** | Portable embeddings + `VectorRecall` shipped; pgvector upgrade (direct `vector` column + ANN index on Postgres) | Postgres provisioned + volume justifies pgvector. Swap is a follow-up migration; the adapter layer does not change. |
 | **Celery dashboards** | Flower / Grafana panels for job throughput | Ships with Celery |
 | **Full UBL canonical XML signing** | xmldsig + C14N for signed UBL envelopes | NRS publishes the definitive XML schema + signing profile |
 

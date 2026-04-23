@@ -176,7 +176,7 @@ submissions) tracked in `docs/PENDING_WORK.md §1`.
 - [x] **P8.7** — `api/memory.py` — `GET /v1/memory/{facts,recall,anomalies,nudges}`.
 - [x] **P8.8** — Full-suite tests (33 new): facts repo, keyword recall, anomaly thresholds, nudges pace/band/VAT, endpoint integration, auto-capture on submission.
 - [x] **P8.9** — Mai Filer tools: `list_user_facts`, `recall_memory`, `detect_yoy_anomalies`, `suggest_mid_year_nudges`. Registry is now **21 tools**.
-- [ ] **P8.10** — pgvector column + `VectorRecall` behind the same `MemoryRecall` interface (deferred until the owner chooses an embeddings vendor — e.g. Voyage AI, which Anthropic recommends).
+- [x] **P8.10** — Portable embeddings + `VectorRecall` behind the same `MemoryRecall` interface. `EMBEDDINGS_PROVIDER=noop|voyage|openai` (or auto-detect from whichever API key env var is set). `record_fact()` writes an embedding when a real provider is live; `build_recall()` routes the caller to `VectorRecall` vs `KeywordRecall` accordingly. Embeddings persist as JSON-encoded float arrays (migration `0008_fact_embeddings`) — portable on SQLite today, direct pgvector upgrade is a one-migration path when Postgres is in place.
 
 ## PHASE 9 — SME (CIT / VAT / MBS) — **v2**
 

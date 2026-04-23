@@ -12,12 +12,18 @@ Postgres NUMERIC and SQLite TEXT without a driver dance.
 
 from __future__ import annotations
 
+import json
+import logging
 from decimal import Decimal
 from typing import Any, Iterable
 
 from sqlalchemy.orm import Session
 
 from app.db.models import Filing, YearlyFact
+from app.memory.embeddings.base import EmbeddingsError
+from app.memory.embeddings.factory import build_embeddings_provider
+
+log = logging.getLogger("mai_filer.memory.facts")
 
 
 FACT_TYPES = {
@@ -89,9 +95,45 @@ def record_fact(
         label=label,
         meta_json=meta,
     )
+    _attach_embedding(fact)
     session.add(fact)
     session.flush()
     return fact
+
+
+def _fact_embed_text(fact: YearlyFact) -> str:
+    """Compact natural-language description of a fact for the embedder."""
+    parts: list[str] = [
+        f"tax year {fact.tax_year}",
+        f"fact {fact.fact_type}",
+    ]
+    if fact.label:
+        parts.append(fact.label)
+    if fact.value:
+        parts.append(f"value {fact.value} {fact.unit}")
+    if fact.source:
+        parts.append(f"source {fact.source}")
+    return " · ".join(parts)
+
+
+def _attach_embedding(fact: YearlyFact) -> None:
+    """Best-effort embed. Failures never block a fact write."""
+    provider = build_embeddings_provider()
+    if provider.name == "noop":
+        return
+    try:
+        result = provider.embed(_fact_embed_text(fact))
+    except EmbeddingsError as exc:
+        log.warning("embedding skipped for fact (non-fatal): %s", exc)
+        return
+    except Exception as exc:  # noqa: BLE001
+        log.warning("embedding skipped for fact (unexpected): %s", exc)
+        return
+    if result is None:
+        return
+    fact.embedding_json = json.dumps(result.vector)
+    fact.embedding_model = result.model
+    fact.embedding_dim = result.dimensions
 
 
 def record_filing_facts(
