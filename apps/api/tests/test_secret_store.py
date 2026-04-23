@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from app.secrets import EnvSecretsProvider, SecretsProviderError
-from app.secrets.aws import AWSSecretsManagerProvider
-from app.secrets.factory import (
+from app.secret_store import EnvSecretsProvider, SecretsProviderError
+from app.secret_store.aws import AWSSecretsManagerProvider
+from app.secret_store.factory import (
     build_secrets_provider,
     secret,
     set_default_provider,

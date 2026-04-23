@@ -80,7 +80,7 @@ class Settings(BaseSettings):
         for backward-compat with env-file-driven dev.
         """
         # Local import avoids a config <-> secrets import cycle at module load.
-        from app.secrets import secret
+        from app.secret_store import secret
 
         value = secret(key)
         if value is not None:

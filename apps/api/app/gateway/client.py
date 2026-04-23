@@ -258,7 +258,7 @@ def build_default_nrs_client() -> NRSClient:
     Manager backend picks up prod values without code changes.
     """
     from app.config import get_settings
-    from app.secrets import secret
+    from app.secret_store import secret
 
     s = get_settings()
     return NRSClient(
