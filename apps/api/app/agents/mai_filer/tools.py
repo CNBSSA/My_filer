@@ -22,6 +22,13 @@ from typing import Any, Callable
 from app.db.models import Document, Filing
 from app.db.session import get_session
 from app.documents.storage import get_default_storage
+from app.filing.corporate_audit import audit as run_corporate_audit
+from app.filing.corporate_schemas import CITReturn
+from app.filing.corporate_service import (
+    audit_corporate_filing,
+    create_corporate_filing,
+    generate_corporate_pack,
+)
 from app.filing.ngo_audit import audit as run_ngo_audit
 from app.filing.ngo_schemas import NGOReturn
 from app.filing.ngo_service import (
@@ -313,6 +320,58 @@ def _run_audit_ngo_filing(filing_id: str) -> dict[str, Any]:
         }
     finally:
         session_gen.close()
+
+
+def _run_audit_corporate_filing(filing_id: str) -> dict[str, Any]:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        filing = session.get(Filing, filing_id)
+        if filing is None:
+            return {"error": f"filing not found: {filing_id}"}
+        if filing.tax_kind != "cit":
+            return {
+                "error": (
+                    f"filing {filing_id} is tax_kind={filing.tax_kind!r} — "
+                    "audit_corporate_filing only handles 'cit'. Use "
+                    "audit_filing (PIT) or audit_ngo_filing (NGO)."
+                ),
+                "reason": "tax_kind_mismatch",
+            }
+        report = audit_corporate_filing(session=session, filing=filing)
+        return {
+            "filing_id": filing.id,
+            "tax_year": filing.tax_year,
+            "tax_kind": filing.tax_kind,
+            "status": report.status,
+            "findings": [f.to_dict() for f in report.findings],
+            "statutory_source": CIT_SOURCE,
+            "statutory_is_placeholder": is_placeholder(CIT_SOURCE),
+        }
+    finally:
+        session_gen.close()
+
+
+def _run_audit_corporate_return(return_: dict[str, Any]) -> dict[str, Any]:
+    """Audit a CIT return payload without persisting it.
+
+    Mai uses this during conversational drafting — surface findings from
+    the in-memory dict before committing to a saved filing. The
+    computation is run against the placeholder CIT bands; the
+    `statutory_is_placeholder` flag in the response tells Mai to caveat
+    any liability figure she quotes.
+    """
+    try:
+        typed = CITReturn.model_validate(return_)
+    except Exception as exc:
+        return {"error": f"return failed schema parse: {exc}"}
+    report = run_corporate_audit(typed)
+    return {
+        "status": report.status,
+        "findings": [f.to_dict() for f in report.findings],
+        "statutory_source": CIT_SOURCE,
+        "statutory_is_placeholder": is_placeholder(CIT_SOURCE),
+    }
 
 
 def _run_audit_ngo_return(return_: dict[str, Any]) -> dict[str, Any]:
@@ -1017,6 +1076,49 @@ TOOLS: tuple[Tool, ...] = (
             "required": ["return_"],
         },
         run=_run_audit_ngo_return,
+    ),
+    Tool(
+        name="audit_corporate_filing",
+        description=(
+            "Run the Corporate (CIT) Audit Shield on an existing filing by "
+            "id. Returns status (green|yellow|red) and findings. Use this "
+            "before offering the user a downloadable CIT pack. Rejects "
+            "filings whose tax_kind is not 'cit'. The response carries "
+            "statutory_is_placeholder=true until the owner replaces the "
+            "2026 CIT bands — always caveat your liability commentary "
+            "accordingly."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "filing_id": {"type": "string", "description": "UUID of the filing."}
+            },
+            "required": ["filing_id"],
+        },
+        run=_run_audit_corporate_filing,
+    ),
+    Tool(
+        name="audit_corporate_return",
+        description=(
+            "Run the Corporate (CIT) Audit Shield against a CITReturn dict "
+            "that hasn't been saved yet. Great for helping a founder shape "
+            "their return in-conversation — surface findings + illustrative "
+            "liability before they commit to a filing row."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "return_": {
+                    "type": "object",
+                    "description": (
+                        "A CITReturn payload (taxpayer, revenues, expenses, "
+                        "declared_turnover?, declared_assessable_profit?, ...)."
+                    ),
+                }
+            },
+            "required": ["return_"],
+        },
+        run=_run_audit_corporate_return,
     ),
     Tool(
         name="submit_to_nrs",

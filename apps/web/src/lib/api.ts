@@ -375,6 +375,111 @@ export function ngoPackDownloadUrl(id: string, format: "pdf" | "json"): string {
 }
 
 // ---------------------------------------------------------------------------
+// Corporate (CIT) filings (Phase 9)
+// ---------------------------------------------------------------------------
+
+export type CorporateCompanyType = "LTD" | "PLC" | "BN" | "LLP" | "OTHER";
+
+export type CorporateExpenseKind =
+  | "cost_of_sales"
+  | "salaries_wages"
+  | "rent"
+  | "utilities"
+  | "depreciation"
+  | "professional_fees"
+  | "marketing"
+  | "interest"
+  | "other";
+
+export interface CITReturn {
+  tax_year: number;
+  period_start: string;
+  period_end: string;
+  taxpayer: {
+    rc_number: string;
+    company_name: string;
+    company_type: CorporateCompanyType;
+    tin?: string | null;
+    registered_address?: string | null;
+    industry?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    primary_officer_name?: string | null;
+    primary_officer_nin?: string | null;
+  };
+  revenues: Array<{ label: string; amount: string | number }>;
+  expenses: Array<{
+    kind: CorporateExpenseKind;
+    label: string;
+    amount: string | number;
+  }>;
+  declared_turnover?: string | number | null;
+  declared_assessable_profit?: string | number | null;
+  wht_already_suffered?: string | number;
+  advance_tax_paid?: string | number;
+  supporting_document_ids?: string[];
+  declaration: boolean;
+  notes?: string | null;
+}
+
+export interface CorporateFilingRecord {
+  id: string;
+  tax_year: number;
+  tax_kind: string;
+  return: Record<string, unknown>;
+  audit_status: AuditStatus;
+  audit: AuditReport | null;
+  pack_ready: boolean;
+  finalized_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createCorporateFiling(
+  body: CITReturn,
+): Promise<CorporateFilingRecord> {
+  const r = await fetch(`${API_BASE}/v1/corporate-filings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return _json(r);
+}
+
+export async function getCorporateFiling(
+  id: string,
+): Promise<CorporateFilingRecord> {
+  return _json(await fetch(`${API_BASE}/v1/corporate-filings/${id}`));
+}
+
+export async function auditCorporateFiling(
+  id: string,
+): Promise<{ filing: CorporateFilingRecord; audit: AuditReport }> {
+  return _json(
+    await fetch(`${API_BASE}/v1/corporate-filings/${id}/audit`, {
+      method: "POST",
+    }),
+  );
+}
+
+export async function buildCorporatePack(
+  id: string,
+): Promise<{ filing: CorporateFilingRecord; pack: Record<string, unknown> }> {
+  return _json(
+    await fetch(`${API_BASE}/v1/corporate-filings/${id}/pack`, {
+      method: "POST",
+    }),
+  );
+}
+
+export function corporatePackDownloadUrl(
+  id: string,
+  format: "pdf" | "json",
+): string {
+  return `${API_BASE}/v1/corporate-filings/${id}/pack.${format}`;
+}
+
+// ---------------------------------------------------------------------------
 // SME calculators (Phase 9 preview — placeholder statutory data)
 // ---------------------------------------------------------------------------
 

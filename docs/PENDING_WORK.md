@@ -111,7 +111,7 @@ the full unlock path.
 | P9.4 | MBS 24-hour sync Celery pipeline (depends on Redis infra — see §5 below). Existing `NRSClient` retry shape is the target task signature |
 | P9.5 | E-invoice composer UI with QR + CSID rendering (reuses the existing web stack) |
 | P9.6 | ✅ CAC Part-A verification shipped: Protocol extended with `verify_cac(rc_number, consent)`, Dojah `/kyc/cac/advance` wired, `cac_records` table + migration `0009`, `POST /v1/identity/verify-cac`, Mai tool `verify_cac`. Seamfix + Prembly stub until their sandboxes open. |
-| P9.7 | SME filing pack: UBL 3.0 JSON + branded PDF (reuses the Phase 4 renderer scaffold) |
+| P9.7 | ✅ Corporate (CIT) filing pack wired — `filing/corporate_*` + `api/corporate_filings.py` + `/sme` intake → `/corporate-filings/[id]` review. Still fronted by placeholder bands; liability numbers become accurate the moment the owner replaces `CIT_BANDS_2026`. A dedicated UBL-first PDF renderer lands with P9.5. |
 | P9.9 | "I'm filing for a business" web entry path + new landing variant |
 
 ---

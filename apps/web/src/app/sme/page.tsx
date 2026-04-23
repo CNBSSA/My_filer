@@ -1,16 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  API_BASE,
   CITResult,
+  CITReturn,
+  CorporateCompanyType,
+  CorporateExpenseKind,
+  CorporateFilingRecord,
   WHTResult,
   calcCit,
   calcWht,
+  createCorporateFiling,
   listWhtClasses,
 } from "@/lib/api";
-import { API_BASE } from "@/lib/api";
 import {
   LANGUAGE_CODES,
   LANGUAGE_LABELS,
@@ -24,11 +30,44 @@ const DEFAULT_ENVELOPE = `{
   "sections": []
 }`;
 
+const COMPANY_TYPES: CorporateCompanyType[] = ["LTD", "PLC", "BN", "LLP", "OTHER"];
+const EXPENSE_KINDS: CorporateExpenseKind[] = [
+  "cost_of_sales",
+  "salaries_wages",
+  "rent",
+  "utilities",
+  "depreciation",
+  "professional_fees",
+  "marketing",
+  "interest",
+  "other",
+];
+
+interface RevenueRow {
+  label: string;
+  amount: string;
+}
+
+interface ExpenseRow {
+  kind: CorporateExpenseKind;
+  label: string;
+  amount: string;
+}
+
+function emptyRevenueRow(): RevenueRow {
+  return { label: "Sales", amount: "0" };
+}
+
+function emptyExpenseRow(): ExpenseRow {
+  return { kind: "cost_of_sales", label: "", amount: "0" };
+}
+
 export default function SmePage() {
   const [language, setLanguage] = useState<LanguageCode>("en");
   const t = useMemo(() => getMessages(language), [language]);
+  const router = useRouter();
 
-  // CIT inputs
+  // CIT calculator inputs
   const [turnover, setTurnover] = useState("50000000");
   const [profit, setProfit] = useState("10000000");
   const [includeTertiary, setIncludeTertiary] = useState(true);
@@ -63,6 +102,31 @@ export default function SmePage() {
 
   const [error, setError] = useState<string | null>(null);
 
+  // ----- Corporate filing intake ------------------------------------------
+  const thisYear = new Date().getUTCFullYear();
+  const [taxYear, setTaxYear] = useState(thisYear);
+  const [periodStart, setPeriodStart] = useState(`${thisYear}-01-01`);
+  const [periodEnd, setPeriodEnd] = useState(`${thisYear}-12-31`);
+  const [rc, setRc] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyType, setCompanyType] = useState<CorporateCompanyType>("LTD");
+  const [tin, setTin] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [regAddress, setRegAddress] = useState("");
+  const [compEmail, setCompEmail] = useState("");
+  const [compPhone, setCompPhone] = useState("");
+  const [officerName, setOfficerName] = useState("");
+  const [officerNin, setOfficerNin] = useState("");
+  const [revenues, setRevenues] = useState<RevenueRow[]>([emptyRevenueRow()]);
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([emptyExpenseRow()]);
+  const [declaredTurnover, setDeclaredTurnover] = useState("");
+  const [whtSuffered, setWhtSuffered] = useState("0");
+  const [advanceTax, setAdvanceTax] = useState("0");
+  const [corpDeclaration, setCorpDeclaration] = useState(false);
+  const [corpBusy, setCorpBusy] = useState(false);
+  const [corpCreated, setCorpCreated] =
+    useState<CorporateFilingRecord | null>(null);
+
   useEffect(() => {
     void (async () => {
       try {
@@ -77,6 +141,12 @@ export default function SmePage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const canSubmitCorp =
+    rc.trim().length > 0 &&
+    companyName.trim().length >= 2 &&
+    corpDeclaration &&
+    !corpBusy;
 
   async function runCit(e: React.FormEvent) {
     e.preventDefault();
@@ -143,6 +213,62 @@ export default function SmePage() {
     }
   }
 
+  async function submitCorporate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmitCorp) return;
+    setCorpBusy(true);
+    setError(null);
+    setCorpCreated(null);
+    const body: CITReturn = {
+      tax_year: taxYear,
+      period_start: periodStart,
+      period_end: periodEnd,
+      taxpayer: {
+        rc_number: rc.trim(),
+        company_name: companyName.trim(),
+        company_type: companyType,
+        tin: tin || null,
+        registered_address: regAddress || null,
+        industry: industry || null,
+        email: compEmail || null,
+        phone: compPhone || null,
+        primary_officer_name: officerName || null,
+        primary_officer_nin: officerNin || null,
+      },
+      revenues: revenues
+        .filter((r) => r.label.trim() && r.amount !== "")
+        .map((r) => ({ label: r.label, amount: r.amount })),
+      expenses: expenses
+        .filter((e) => e.label.trim() && e.amount !== "")
+        .map((e) => ({ kind: e.kind, label: e.label, amount: e.amount })),
+      declared_turnover: declaredTurnover || null,
+      wht_already_suffered: whtSuffered || "0",
+      advance_tax_paid: advanceTax || "0",
+      declaration: corpDeclaration,
+    };
+    try {
+      const record = await createCorporateFiling(body);
+      setCorpCreated(record);
+      router.push(`/corporate-filings/${record.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCorpBusy(false);
+    }
+  }
+
+  function updateRevenue(idx: number, patch: Partial<RevenueRow>) {
+    setRevenues((prev) =>
+      prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function updateExpense(idx: number, patch: Partial<ExpenseRow>) {
+    setExpenses((prev) =>
+      prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)),
+    );
+  }
+
   function money(value: string | undefined): string {
     if (!value) return "—";
     const n = Number(value);
@@ -186,7 +312,189 @@ export default function SmePage() {
         </p>
       ) : null}
 
-      {/* CIT */}
+      {/* Corporate filing intake --------------------------------------- */}
+      <section className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          File a CIT return
+        </h2>
+        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+          Start a Corporate Income Tax return for your company. CAC Part-A
+          RC is the primary identifier — verify it via the chat flow first
+          if you haven&apos;t already. Computations run against the
+          placeholder 2026 bands until the owner confirms the real schedule.
+        </p>
+        <form onSubmit={submitCorporate} className="space-y-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="corp-rc" label="CAC RC number" value={rc} onChange={setRc} required />
+            <Field id="corp-name" label="Company name" value={companyName} onChange={setCompanyName} required />
+            <div>
+              <label htmlFor="corp-type" className="block text-xs text-zinc-500">Company type</label>
+              <select
+                id="corp-type"
+                value={companyType}
+                onChange={(e) => setCompanyType(e.target.value as CorporateCompanyType)}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                {COMPANY_TYPES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <Field id="corp-tin" label="TIN (optional)" value={tin} onChange={setTin} />
+            <Field id="corp-industry" label="Industry" value={industry} onChange={setIndustry} />
+            <Field id="corp-address" label="Registered address" value={regAddress} onChange={setRegAddress} />
+            <Field id="corp-email" label="Email" value={compEmail} onChange={setCompEmail} type="email" />
+            <Field id="corp-phone" label="Phone" value={compPhone} onChange={setCompPhone} />
+            <NumField
+              id="corp-year"
+              label="Tax year"
+              value={String(taxYear)}
+              onChange={(v) => setTaxYear(Number(v))}
+              min={2025}
+              max={2100}
+            />
+            <Field id="corp-pstart" label="Period start" value={periodStart} onChange={setPeriodStart} type="date" />
+            <Field id="corp-pend" label="Period end" value={periodEnd} onChange={setPeriodEnd} type="date" />
+            <Field id="corp-officer-name" label="Primary officer name" value={officerName} onChange={setOfficerName} />
+            <Field id="corp-officer-nin" label="Primary officer NIN" value={officerNin} onChange={setOfficerNin} />
+          </div>
+
+          <fieldset className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <legend className="px-2 text-xs uppercase tracking-wider text-zinc-500">Revenues</legend>
+            <div className="space-y-2">
+              {revenues.map((row, idx) => (
+                <div key={idx} className="grid gap-2 sm:grid-cols-5">
+                  <Field
+                    id={`rev-label-${idx}`}
+                    label="Label"
+                    value={row.label}
+                    onChange={(v) => updateRevenue(idx, { label: v })}
+                    className="sm:col-span-3"
+                  />
+                  <NumField
+                    id={`rev-amount-${idx}`}
+                    label="Amount (₦)"
+                    value={row.amount}
+                    onChange={(v) => updateRevenue(idx, { amount: v })}
+                    className="sm:col-span-2"
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setRevenues((p) => [...p, emptyRevenueRow()])}
+                className="rounded-full border border-zinc-300 px-3 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                + Add revenue line
+              </button>
+            </div>
+          </fieldset>
+
+          <fieldset className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+            <legend className="px-2 text-xs uppercase tracking-wider text-zinc-500">Expenses</legend>
+            <div className="space-y-2">
+              {expenses.map((row, idx) => (
+                <div key={idx} className="grid gap-2 sm:grid-cols-6">
+                  <div className="sm:col-span-2">
+                    <label htmlFor={`exp-kind-${idx}`} className="block text-xs text-zinc-500">Kind</label>
+                    <select
+                      id={`exp-kind-${idx}`}
+                      value={row.kind}
+                      onChange={(e) =>
+                        updateExpense(idx, {
+                          kind: e.target.value as CorporateExpenseKind,
+                        })
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+                      {EXPENSE_KINDS.map((k) => (
+                        <option key={k} value={k}>{k.replace(/_/g, " ")}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Field
+                    id={`exp-label-${idx}`}
+                    label="Label"
+                    value={row.label}
+                    onChange={(v) => updateExpense(idx, { label: v })}
+                    className="sm:col-span-2"
+                  />
+                  <NumField
+                    id={`exp-amount-${idx}`}
+                    label="Amount (₦)"
+                    value={row.amount}
+                    onChange={(v) => updateExpense(idx, { amount: v })}
+                    className="sm:col-span-2"
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setExpenses((p) => [...p, emptyExpenseRow()])}
+                className="rounded-full border border-zinc-300 px-3 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                + Add expense line
+              </button>
+            </div>
+          </fieldset>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <NumField
+              id="corp-declared-turnover"
+              label="Declared turnover (optional, overrides sum)"
+              value={declaredTurnover}
+              onChange={setDeclaredTurnover}
+            />
+            <NumField
+              id="corp-wht-suffered"
+              label="WHT already suffered"
+              value={whtSuffered}
+              onChange={setWhtSuffered}
+            />
+            <NumField
+              id="corp-advance"
+              label="Advance tax paid"
+              value={advanceTax}
+              onChange={setAdvanceTax}
+            />
+          </div>
+
+          <fieldset className="rounded-xl bg-amber-50 p-4 text-sm dark:bg-amber-950/40">
+            <label className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={corpDeclaration}
+                onChange={(e) => setCorpDeclaration(e.target.checked)}
+              />
+              <span>
+                I am an authorised officer and affirm this CIT return is
+                true, correct, and complete to the best of my knowledge.
+              </span>
+            </label>
+          </fieldset>
+
+          <button
+            type="submit"
+            disabled={!canSubmitCorp}
+            className="w-full rounded-full bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-40 sm:w-auto"
+          >
+            {corpBusy ? "Submitting…" : "Create CIT filing"}
+          </button>
+
+          {corpCreated ? (
+            <p className="text-sm text-emerald-800 dark:text-emerald-200">
+              Created filing{" "}
+              <Link className="font-mono underline" href={`/corporate-filings/${corpCreated.id}`}>
+                {corpCreated.id}
+              </Link>
+              .
+            </p>
+          ) : null}
+        </form>
+      </section>
+
+      {/* CIT calculator (quick preview, does not persist) -------------- */}
       <section className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
           {t.sme.citHeading}
@@ -367,6 +675,54 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex justify-between gap-4">
       <dt className="text-zinc-500">{label}</dt>
       <dd className="text-right">{value}</dd>
+    </div>
+  );
+}
+
+interface FieldCtlProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  type?: string;
+  className?: string;
+}
+
+function Field(props: FieldCtlProps) {
+  return (
+    <div className={props.className}>
+      <label htmlFor={props.id} className="block text-xs text-zinc-500">
+        {props.label}
+      </label>
+      <input
+        id={props.id}
+        type={props.type ?? "text"}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        required={props.required}
+        className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+      />
+    </div>
+  );
+}
+
+function NumField(props: FieldCtlProps & { min?: number; max?: number; step?: number }) {
+  return (
+    <div className={props.className}>
+      <label htmlFor={props.id} className="block text-xs text-zinc-500">
+        {props.label}
+      </label>
+      <input
+        id={props.id}
+        type="number"
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        min={props.min}
+        max={props.max}
+        step={props.step ?? 1}
+        className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+      />
     </div>
   );
 }
