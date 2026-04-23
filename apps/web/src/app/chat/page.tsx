@@ -259,21 +259,28 @@ export default function ChatPage() {
         <div className="flex items-end gap-2 rounded-2xl border border-zinc-300 bg-white p-2 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <input
             ref={fileInputRef}
+            id="chat-upload"
             type="file"
             className="hidden"
+            aria-label="Upload payslip, receipt, or bank statement"
             accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
             onChange={onFileSelected}
           />
           <button
             type="button"
+            aria-label="Upload payslip (PDF or image)"
             title="Upload payslip (PDF or image)"
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             className="rounded-xl px-3 py-2 text-lg disabled:opacity-40 hover:bg-zinc-100 dark:hover:bg-zinc-800"
           >
-            📎
+            <span aria-hidden="true">📎</span>
           </button>
+          <label htmlFor="chat-draft" className="sr-only">
+            {t.chat.placeholder}
+          </label>
           <textarea
+            id="chat-draft"
             className="flex-1 resize-none bg-transparent p-2 text-base focus:outline-none"
             rows={2}
             placeholder={t.chat.placeholder}

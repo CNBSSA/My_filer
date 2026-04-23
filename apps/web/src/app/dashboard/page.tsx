@@ -124,9 +124,10 @@ export default function DashboardPage() {
 
       <section className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800 sm:p-5">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="flex flex-col text-xs text-zinc-500">
+          <label htmlFor="dashboard-nin" className="flex flex-col text-xs text-zinc-500">
             {t.dashboard.filtersNinLabel}
             <input
+              id="dashboard-nin"
               type="text"
               value={ninHash}
               onChange={(e) => setNinHash(e.target.value)}
@@ -135,9 +136,10 @@ export default function DashboardPage() {
               className="mt-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
-          <label className="flex flex-col text-xs text-zinc-500">
+          <label htmlFor="dashboard-year" className="flex flex-col text-xs text-zinc-500">
             {t.dashboard.filtersYearLabel}
             <input
+              id="dashboard-year"
               type="number"
               value={taxYear}
               min={2025}
@@ -147,9 +149,10 @@ export default function DashboardPage() {
               className="mt-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
-          <label className="flex flex-col text-xs text-zinc-500">
+          <label htmlFor="dashboard-ytd" className="flex flex-col text-xs text-zinc-500">
             {t.dashboard.filtersYtdLabel}
             <input
+              id="dashboard-ytd"
               type="number"
               min={0}
               step={10000}
@@ -159,9 +162,10 @@ export default function DashboardPage() {
               className="mt-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
-          <label className="flex flex-col text-xs text-zinc-500">
+          <label htmlFor="dashboard-month" className="flex flex-col text-xs text-zinc-500">
             {t.dashboard.filtersMonthLabel}
             <input
+              id="dashboard-month"
               type="number"
               min={1}
               max={12}

@@ -39,6 +39,7 @@ See `docs/DECISIONS.md` (ADR-0002) for the locked v1 scope and
 - [`docs/NDPC_AUDIT_TEMPLATE.md`](./docs/NDPC_AUDIT_TEMPLATE.md) — DPCA audit workflow
 - [`docs/NITDA_CLEARANCE_TEMPLATE.md`](./docs/NITDA_CLEARANCE_TEMPLATE.md) — NITDA clearance submission package
 - [`docs/PENDING_WORK.md`](./docs/PENDING_WORK.md) — memory anchor for everything not yet shipped
+- [`docs/ACCESSIBILITY.md`](./docs/ACCESSIBILITY.md) — WCAG 2.2 AA test harness + regression gate
 - [`docs/ROADMAP.md`](./docs/ROADMAP.md) — phased, smallest-task breakdown
 
 ## Repo layout

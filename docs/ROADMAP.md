@@ -244,7 +244,7 @@ the NRS-confirmed NGO specification.
 
 - [x] **P10.1** — `/dashboard` page with YoY facts table, anomaly findings, mid-year nudges, filter controls (NIN hash, tax year, YTD gross, month). All 5 v1 languages carry the dashboard strings. Recall surfaces which backend implementation answered (`VectorRecall` vs `KeywordRecall`).
 - [x] **P10.2** — Mobile-responsive sweep: landing stacks CTAs on small viewports, dashboard uses `sm:` breakpoints for filter grid + anomaly rows, existing chat / identity / filings pages verified. Web build produces 7 routes, `tsc --noEmit` clean.
-- [ ] **P10.3** — WCAG AA accessibility audit (pending owner call — trivial follow-up with `axe-core` in the test harness)
+- [x] **P10.3** — WCAG 2.2 AA accessibility harness. Primary: `npm run test:a11y` (jsdom + axe-core, zero browser dep, boots `next start`, fails on any serious/critical violation). Optional deep path: `npm run test:a11y:browser` via Playwright + `@axe-core/playwright`. Baseline at this commit: **0 violations** across `/`, `/chat`, `/identity`, `/dashboard`. Fixes landed: explicit `htmlFor` / `id` on every input, `sr-only` label on the chat textarea, `aria-label` on the 📎 upload button, `aria-describedby` on help-text pairs. See `docs/ACCESSIBILITY.md` for CI wiring.
 - [ ] **P10.4** — Additional Nigerian languages beyond v1 (e.g., Fulfulde) — subject to a later ADR
 
 ---

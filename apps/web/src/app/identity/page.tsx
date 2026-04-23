@@ -91,10 +91,11 @@ export default function IdentityPage() {
         className="space-y-5 rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800"
       >
         <div>
-          <label className="block text-sm font-medium">
+          <label htmlFor="identity-nin" className="block text-sm font-medium">
             {t.identity.ninLabel}
           </label>
           <input
+            id="identity-nin"
             type="text"
             inputMode="numeric"
             pattern="\d{11}"
@@ -102,24 +103,31 @@ export default function IdentityPage() {
             value={nin}
             onChange={(e) => setNin(e.target.value.replace(/\D/g, "").slice(0, 11))}
             disabled={busy}
+            aria-describedby="identity-nin-help"
             className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono tracking-widest focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
             placeholder="12345678901"
           />
-          <p className="mt-1 text-xs text-zinc-500">{t.identity.ninHelper}</p>
+          <p id="identity-nin-help" className="mt-1 text-xs text-zinc-500">
+            {t.identity.ninHelper}
+          </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium">
+          <label htmlFor="identity-name" className="block text-sm font-medium">
             {t.identity.nameLabel}
           </label>
           <input
+            id="identity-name"
             type="text"
             value={declaredName}
             onChange={(e) => setDeclaredName(e.target.value)}
             disabled={busy}
+            aria-describedby="identity-name-help"
             className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
           />
-          <p className="mt-1 text-xs text-zinc-500">{t.identity.nameHelper}</p>
+          <p id="identity-name-help" className="mt-1 text-xs text-zinc-500">
+            {t.identity.nameHelper}
+          </p>
         </div>
 
         <fieldset className="rounded-xl bg-amber-50 p-4 text-sm dark:bg-amber-950/40">
