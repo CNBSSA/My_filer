@@ -30,6 +30,20 @@ class VerifyRequest(BaseModel):
     thread_id: str | None = None
 
 
+class VerifyCACRequest(BaseModel):
+    rc_number: str = Field(min_length=1, max_length=64)
+    consent: bool = Field(
+        default=False,
+        description=(
+            "MUST be True. A CAC register query is a data-subject action under "
+            "NDPR and requires explicit consent from an authorized officer."
+        ),
+    )
+    declared_name: str | None = Field(default=None, max_length=200)
+    purpose: str = Field(default="corporate_filing", max_length=128)
+    thread_id: str | None = None
+
+
 def get_service(session: Session = Depends(get_session)) -> IdentityService:
     return build_identity_service(session)
 
@@ -47,6 +61,38 @@ async def verify(
     try:
         result = service.verify_taxpayer(
             nin=body.nin,
+            consent=body.consent,
+            declared_name=body.declared_name,
+            purpose=body.purpose,
+            thread_id=body.thread_id,
+        )
+    except ConsentRequiredError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    except AggregatorError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        ) from exc
+    return result.to_dict()
+
+
+@router.post("/verify-cac")
+async def verify_cac(
+    body: VerifyCACRequest,
+    service: IdentityService = Depends(get_service),
+) -> dict[str, Any]:
+    """Verify a CAC RC number against the Part-A register (P9)."""
+    if not body.consent:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Consent must be explicitly granted (consent=true).",
+        )
+    try:
+        result = service.verify_organization(
+            rc_number=body.rc_number,
             consent=body.consent,
             declared_name=body.declared_name,
             purpose=body.purpose,

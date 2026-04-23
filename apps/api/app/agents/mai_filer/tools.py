@@ -619,6 +619,41 @@ def _run_verify_identity(
         session_gen.close()
 
 
+def _run_verify_cac(
+    rc_number: str,
+    consent: bool,
+    declared_name: str | None = None,
+    purpose: str = "corporate_filing",
+) -> dict[str, Any]:
+    """Look up a CAC RC number via the configured aggregator (Dojah default).
+
+    Same consent contract as `verify_identity`: only call this after the
+    authorized officer has explicitly agreed on-chat. The service writes
+    an append-only consent_log row and upserts a `cac_records` snapshot
+    on success so the corporate filing flow can cross-check the taxpayer.
+    """
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        service = build_identity_service(session)
+        try:
+            result = service.verify_organization(
+                rc_number=rc_number,
+                consent=consent,
+                declared_name=declared_name,
+                purpose=purpose,
+            )
+        except ConsentRequiredError as exc:
+            return {"error": str(exc), "reason": "consent_required"}
+        except ValueError as exc:
+            return {"error": str(exc), "reason": "invalid_input"}
+        except AggregatorError as exc:
+            return {"error": str(exc), "reason": "aggregator_unavailable"}
+        return result.to_dict()
+    finally:
+        session_gen.close()
+
+
 def _run_list_recent_filings(limit: int = 10) -> dict[str, Any]:
     """List the most recent filings — useful when a user refers to 'my filing'."""
     session_gen = get_session()
@@ -1126,6 +1161,45 @@ TOOLS: tuple[Tool, ...] = (
             "required": ["nin", "consent"],
         },
         run=_run_verify_identity,
+    ),
+    Tool(
+        name="verify_cac",
+        description=(
+            "Look up a CAC RC number on the Corporate Affairs Commission "
+            "register via the configured aggregator. Use this for SME / "
+            "corporate / NGO flows once the authorized officer has consented "
+            "on-chat (NDPR rule). If you pass `declared_name` the service "
+            "compares it against the registered company name and returns a "
+            "match status (strict / fuzzy / mismatch) you should surface. "
+            "A consent_log row is appended regardless of outcome, and on "
+            "success a `cac_records` snapshot is upserted for later review."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "rc_number": {
+                    "type": "string",
+                    "description": "CAC registration number (alphanumeric).",
+                    "minLength": 1,
+                    "maxLength": 64,
+                },
+                "consent": {
+                    "type": "boolean",
+                    "description": "MUST be true. Set only after explicit consent.",
+                },
+                "declared_name": {
+                    "type": ["string", "null"],
+                    "description": "The company name the user declared — used for name-match.",
+                },
+                "purpose": {
+                    "type": "string",
+                    "description": "Short label for the consent log, e.g. 'corporate_filing'.",
+                    "default": "corporate_filing",
+                },
+            },
+            "required": ["rc_number", "consent"],
+        },
+        run=_run_verify_cac,
     ),
 )
 

@@ -221,6 +221,37 @@ class YearlyFact(Base):
     )
 
 
+class CACRecord(Base):
+    """Latest CAC Part-A snapshot for an RC number (P9 corporate filings).
+
+    Keyed by the normalized RC number (uppercase, trimmed). We persist the
+    company name, registration date, status, address, and a JSON blob of
+    directors so the corporate filing flow can cross-check the declared
+    taxpayer against the register without re-calling the aggregator on
+    every load.
+    """
+
+    __tablename__ = "cac_records"
+
+    rc_number: Mapped[str] = mapped_column(String(64), primary_key=True)
+    aggregator: Mapped[str] = mapped_column(String(32), nullable=False)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    company_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    registration_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    directors_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    verified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+    last_verified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
+    )
+
+
 class IdentityRecord(Base):
     """Latest verified identity for a NIN hash.
 

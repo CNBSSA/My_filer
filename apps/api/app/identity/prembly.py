@@ -7,7 +7,7 @@ request shape lands when we activate their sandbox.
 
 from __future__ import annotations
 
-from app.identity.base import AggregatorError, NINVerification
+from app.identity.base import AggregatorError, CACVerification, NINVerification
 
 
 class PremblyAdapter:
@@ -28,4 +28,16 @@ class PremblyAdapter:
             )
         raise AggregatorError(
             "Prembly adapter not wired to a live endpoint yet (awaiting sandbox creds)"
+        )
+
+    def verify_cac(self, rc_number: str, *, consent: bool) -> CACVerification:
+        cleaned = (rc_number or "").strip().upper()
+        if not cleaned or not cleaned.replace("-", "").replace("/", "").isalnum():
+            raise ValueError("RC number must be non-empty and alphanumeric")
+        if not consent:
+            raise PermissionError(
+                "consent=True is mandatory before any CAC query (NDPR / NDPC)"
+            )
+        raise AggregatorError(
+            "Prembly CAC adapter not wired to a live endpoint yet (awaiting sandbox creds)"
         )

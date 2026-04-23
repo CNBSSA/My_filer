@@ -206,9 +206,9 @@ run until these drop in:
 - [x] **P9.3** — `filing/ubl/` package — `UBLEnvelope` Pydantic + JSON + XML serializers + validator asserting 8-section / 55-field invariants and emitting structured findings; 8 tests.
 - [ ] **P9.4** — MBS 24h sync Celery pipeline + backoff (deferred with P6.4/P6.5; the sync gateway path is already the shape of the eventual task).
 - [ ] **P9.5** — E-invoice composer UI with QR + CSID rendering.
-- [ ] **P9.6** — CAC verification flow (reuses Phase 5 aggregator adapters — same `IdentityAggregator` Protocol).
+- [x] **P9.6** — CAC Part-A verification flow: `IdentityAggregator.verify_cac(rc_number, consent)` on the shared Protocol; `DojahAdapter` talks to `/kyc/cac/advance`, Seamfix + Prembly stub behind a "not wired" `AggregatorError`. `IdentityService.verify_organization` applies the same consent → retry (2/4/8/16s) → upsert → name-match → ConsentLog pipeline used for NIN. `cac_records` table + alembic `0009_cac_records` persists the snapshot. `POST /v1/identity/verify-cac` + Mai tool `verify_cac` complete the surface (18 tools). 17 new tests; full suite 351 green.
 - [ ] **P9.7** — SME filing pack (UBL 3.0 JSON + branded PDF variant reusing Phase 4 renderer).
-- [x] **P9.8** — Mai Filer tools: `calc_cit`, `calc_wht`, `list_wht_classes`, `validate_ubl_envelope`. Registry is now 17 tools. `compose_einvoice` and `submit_mbs` land with P9.5 / P9.4.
+- [x] **P9.8** — Mai Filer tools: `calc_cit`, `calc_wht`, `list_wht_classes`, `validate_ubl_envelope`, `verify_cac`. Registry is now 18 tools. `compose_einvoice` and `submit_mbs` land with P9.5 / P9.4.
 - [x] **P9.9** — Web: `/sme` preview page with interactive CIT + WHT calculators and a UBL 3.0 envelope validator, all wired to thin HTTP wrappers (`/v1/sme/calc-cit`, `/v1/sme/calc-wht`, `/v1/sme/wht-classes`, `/v1/sme/validate-ubl`) over the Phase 9 scaffolding. Prominent placeholder banner reminds the user that the statutory tables are illustrative until confirmed. Landing page CTA added. Corporate `Filing` endpoint remains deferred until 2026 rates land.
 
 ## PHASE 11 — NGO / Tax-Exempt Bodies ✅ BACKEND SCAFFOLD COMPLETE

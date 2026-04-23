@@ -34,7 +34,12 @@ from typing import Any, Protocol
 
 import httpx
 
-from app.identity.base import AggregatorError, NINVerification
+from app.identity.base import (
+    AggregatorError,
+    CACDirector,
+    CACVerification,
+    NINVerification,
+)
 
 DEFAULT_BASE_URL = "https://api.dojah.io/api/v1"
 
@@ -131,6 +136,78 @@ class DojahAdapter:
             f"dojah returned {response.status_code}: {getattr(response, 'text', '')}"
         )
 
+    def verify_cac(self, rc_number: str, *, consent: bool) -> CACVerification:
+        """Look up an RC number against Dojah's `/kyc/cac/advance` endpoint.
+
+        Dojah's advance CAC response (abridged):
+
+        ```
+        {
+          "entity": {
+            "rc_number": "RC-123456",
+            "company_name": "Globacom Limited",
+            "company_type": "LTD",
+            "registration_date": "2008-09-15",
+            "status": "ACTIVE",
+            "address": "1 Mike Adenuga Way, Lagos",
+            "email": "info@globacom.ng",
+            "directors": [
+              {"name": "John Doe", "role": "Director", "nationality": "NG"},
+              ...
+            ]
+          }
+        }
+        ```
+
+        We normalize to `CACVerification`. Valid requires an active status
+        AND a non-empty company name. 400s degrade to `valid=False`; 5xx
+        bubbles up as AggregatorError so the service can retry.
+        """
+        cleaned = (rc_number or "").strip().upper()
+        if not cleaned or not cleaned.replace("-", "").replace("/", "").isalnum():
+            raise ValueError("RC number must be non-empty and alphanumeric")
+        if not consent:
+            raise PermissionError(
+                "consent=True is mandatory before any CAC query (NDPR / NDPC)"
+            )
+
+        url = f"{self._base_url}/kyc/cac/advance"
+        headers = {
+            "AppId": self._app_id,
+            "Authorization": self._api_key,
+            "Accept": "application/json",
+        }
+        params = {"rc_number": cleaned}
+
+        try:
+            response = self._http.get(
+                url, headers=headers, params=params, timeout=self._timeout
+            )
+        except Exception as exc:
+            raise AggregatorError(f"dojah transport failure: {exc}") from exc
+
+        if response.status_code == 200:
+            payload = response.json() or {}
+            entity = payload.get("entity") or {}
+            return _to_cac_verification(rc_number=cleaned, entity=entity, raw=payload)
+
+        if 400 <= response.status_code < 500:
+            try:
+                reason = response.json().get("error") or response.text
+            except Exception:
+                reason = response.text
+            return CACVerification(
+                valid=False,
+                aggregator="dojah",
+                rc_number=cleaned,
+                error=f"dojah returned {response.status_code}: {reason}",
+                raw={"status": response.status_code, "body": reason},
+            )
+
+        raise AggregatorError(
+            f"dojah returned {response.status_code}: {getattr(response, 'text', '')}"
+        )
+
 
 def _parse_date(value: Any) -> date | None:
     if not value:
@@ -168,5 +245,47 @@ def _to_verification(*, nin: str, entity: dict[str, Any], raw: dict[str, Any]) -
         state_of_origin=entity.get("state_of_origin"),
         phone=entity.get("phone_number") or entity.get("phone"),
         error=None if valid else "incomplete identity record",
+        raw=raw,
+    )
+
+
+def _to_cac_verification(
+    *, rc_number: str, entity: dict[str, Any], raw: dict[str, Any]
+) -> CACVerification:
+    company_name = (entity.get("company_name") or "").strip() or None
+    status = (entity.get("status") or "").strip().upper() or None
+
+    directors_raw = entity.get("directors") or []
+    directors: list[CACDirector] = []
+    for item in directors_raw:
+        if not isinstance(item, dict):
+            continue
+        name = (item.get("name") or "").strip()
+        if not name:
+            continue
+        directors.append(
+            CACDirector(
+                name=name,
+                role=(item.get("role") or None),
+                nationality=(item.get("nationality") or None),
+            )
+        )
+
+    echoed = str(entity.get("rc_number") or "").strip().upper()
+    rc_ok = not echoed or echoed == rc_number
+    valid = bool(company_name and rc_ok and status != "DISSOLVED")
+
+    return CACVerification(
+        valid=valid,
+        aggregator="dojah",
+        rc_number=rc_number,
+        company_name=company_name,
+        company_type=(entity.get("company_type") or None),
+        registration_date=_parse_date(entity.get("registration_date")),
+        status=status,
+        address=(entity.get("address") or None),
+        email=(entity.get("email") or None),
+        directors=directors,
+        error=None if valid else "incomplete CAC record",
         raw=raw,
     )

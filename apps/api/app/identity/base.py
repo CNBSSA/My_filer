@@ -1,14 +1,18 @@
-"""Identity aggregator interface (P5.1).
+"""Identity aggregator interface (P5.1 + P9 CAC extension).
 
 Mai Filer needs to verify that a NIN belongs to a real person and read back
 the NIN holder's identity so the Audit Shield can cross-check the name on
-the return. We do **not** call NIMC directly in v1 — see ADR-0003:
+the return. We do **not** call NIMC / CAC directly in v1 — see ADR-0003:
 licensed aggregators (Dojah, Seamfix, Prembly) handle the heavy lifting.
 
+For SMEs and corporate filings (Phase 9) we also need CAC Part-A verification
+against the Corporate Affairs Commission registry: confirm the RC number
+maps to a real business and pull back the registered name + directors.
+
 Each aggregator ships as a small adapter that implements `IdentityAggregator`.
-The adapter stays dumb: it receives `(nin, consent)` + credentials, calls
-the vendor, and returns a `NINVerification`. Everything else (consent log,
-NIN hashing, vault write, name matching, retry/backoff) lives in
+The adapter stays dumb: it receives `(nin, consent)` or `(rc_number, consent)`
++ credentials, calls the vendor, and returns a typed verification. Everything
+else (consent log, hashing, name matching, retry/backoff) lives in
 `identity/service.py` so the rules stay in one place.
 """
 
@@ -53,6 +57,41 @@ class NINVerification:
         return " ".join(parts).strip() or None
 
 
+@dataclass
+class CACDirector:
+    """One director row pulled from the CAC Part-A register."""
+
+    name: str
+    role: str | None = None  # "Director" | "Secretary" | "Shareholder"
+    nationality: str | None = None
+
+
+@dataclass
+class CACVerification:
+    """Result of a CAC Part-A lookup for an RC number.
+
+    `valid` is True only when the aggregator confirmed the RC number is
+    active AND returned at least a company name. Everything beyond that
+    (directors, address, status) is best-effort; different aggregators
+    surface different slices of the register.
+    """
+
+    valid: bool
+    aggregator: str
+    rc_number: str
+
+    company_name: str | None = None
+    company_type: str | None = None  # "LTD" | "PLC" | "BN" | "IT" (NGO) | ...
+    registration_date: date | None = None
+    status: str | None = None  # "ACTIVE" | "INACTIVE" | "DISSOLVED"
+    address: str | None = None
+    email: str | None = None
+    directors: list[CACDirector] = field(default_factory=list)
+
+    error: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
 class AggregatorError(RuntimeError):
     """Raised by adapters for transport / auth / upstream failures."""
 
@@ -70,4 +109,17 @@ class IdentityAggregator(Protocol):
         - Raise `PermissionError` if `consent` is not True (NDPR rule).
         - Raise `AggregatorError` on transport / 5xx / auth failures so the
           service can decide whether to retry with the next vendor.
+        """
+
+    def verify_cac(self, rc_number: str, *, consent: bool) -> CACVerification:
+        """Look up a CAC RC number against the Corporate Affairs register.
+
+        Implementations MUST:
+        - Raise `ValueError` if `rc_number` is empty or not alphanumeric.
+        - Raise `PermissionError` if `consent` is not True.
+        - Raise `AggregatorError` on transport / 5xx / auth failures.
+
+        Adapters without a CAC integration should raise `AggregatorError`
+        with a clear "not wired" message so the service layer can surface
+        a 502 instead of pretending the record was verified.
         """
