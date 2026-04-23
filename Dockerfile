@@ -1,11 +1,17 @@
-# Mai Filer API — production Dockerfile.
+# Root-level Dockerfile for the API service on Railway.
 #
-# Multi-stage build: the "builder" image installs Python deps into a venv,
-# the "runtime" image copies only the venv + app source. Keeps the final
-# image small and avoids leaking build tools into production.
+# Why this exists at the repo root (and not only at apps/api/Dockerfile):
+#   Railway's single-service monorepo setup scans the repo root for a
+#   Dockerfile. If the service's "Root Directory" isn't set in the Railway
+#   dashboard, it falls back to Railpack auto-detect, which fails with
+#   "Error creating build plan with Railpack" on monorepos.
 #
-# Used by Railway (builder=DOCKERFILE in railway.json) and slots directly
-# into AWS ECR / ECS when the production cutover happens.
+#   Shipping this file at root means the build succeeds with zero
+#   dashboard clicks. For a second service that deploys the web app,
+#   create a new Railway service and set its Root Directory to `apps/web`
+#   (it will then use apps/web/Dockerfile).
+#
+# Build context: repo root. All COPY paths are qualified with apps/api/.
 
 # -----------------------------------------------------------------------------
 # Builder
@@ -19,8 +25,6 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH=/opt/venv/bin:$PATH
 
-# libpq + build-essential are needed to build psycopg from source on some
-# slim tags. They never ship to the runtime stage.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         build-essential \
@@ -28,18 +32,17 @@ RUN apt-get update \
         curl \
  && rm -rf /var/lib/apt/lists/*
 
-RUN python -m venv "$VIRTUAL_ENV"
+RUN python -m venv "$VIRTUAL_ENV" \
+ && pip install --upgrade pip
 
 WORKDIR /build
 
-# Hatchling (our build-backend, per pyproject.toml) requires the `app/`
-# package directory present at install time, so we can't split the
-# pyproject-only "cache layer" from the full copy. Copy everything, then
-# do one install.
-COPY . ./
+# Copy the full API tree first — hatchling (build-backend) needs the
+# `app/` package dir present when `pip install -e .` runs, so we can't
+# split the pyproject copy from the source copy.
+COPY apps/api/ ./
 
-RUN pip install --upgrade pip \
- && pip install -e .
+RUN pip install -e .
 
 # -----------------------------------------------------------------------------
 # Runtime
@@ -52,8 +55,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:$PATH \
     APP_ENV=production
 
-# libpq for the Postgres driver at runtime; curl for the container
-# healthcheck below.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         libpq5 \
@@ -64,17 +65,15 @@ RUN apt-get update \
 
 COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
-COPY --chown=mai:mai . /app
+COPY --from=builder --chown=mai:mai /build /app
 
 USER mai
 
-# Railway supplies $PORT dynamically; default to 8000 for local `docker run`.
 ENV PORT=8000
 EXPOSE 8000
 
-# Alembic runs in preDeployCommand (see railway.json) so the migration step
-# doesn't happen on every container restart. The startCommand stays minimal
-# and fast-to-restart.
+# Alembic runs in preDeployCommand (see railway.json) so the migration
+# step doesn't happen on every container restart.
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \

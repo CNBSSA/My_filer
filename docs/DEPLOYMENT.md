@@ -29,22 +29,35 @@ The web service talks to the API service over the public HTTPS URL.
 
 ## 2. First-time setup on Railway
 
-Both services build from **Dockerfiles** checked into the repo
-(`apps/api/Dockerfile`, `apps/web/Dockerfile`) with `railway.json`
-declaring `"builder": "DOCKERFILE"`. This sidesteps Railway's Railpack
-auto-detection, which fails on monorepos without explicit hints.
+Both services build from **Dockerfiles** checked into the repo with
+`railway.json` declaring `"builder": "DOCKERFILE"`. There are three
+Dockerfiles + two railway.jsons, matching three deployment shapes:
 
-1. In Railway, create a new project from the GitHub repo
-   `cnbssa/my_filer`, tracking the `main` branch.
-2. Add two services from the same repo. For each service, go to
-   **Settings → Source → Root Directory** and set:
-   - **API** service: `apps/api`
-   - **Web** service: `apps/web`
+| File | Role |
+|---|---|
+| `./Dockerfile` + `./railway.json` | Root-level build for the **API**. Works with a single Railway service that has **no Root Directory set** — i.e., the zero-click path. Build context is the repo root; `COPY apps/api/ ./` pulls only the API tree. |
+| `apps/api/Dockerfile` + `apps/api/railway.json` | Used when the Railway service's **Root Directory** is set to `apps/api` (the cleaner, recommended setup once you're running two services). |
+| `apps/web/Dockerfile` + `apps/web/railway.json` | Used when the Railway service's **Root Directory** is set to `apps/web`. |
 
-   Without the Root Directory, Railway will try to build from the repo
-   root and Railpack will fail with `Error creating build plan with
-   Railpack`. This is the only must-do setup step beyond the one-click
-   repo import.
+### Option 2a — Zero-click (API-only, single service)
+
+1. Create a Railway service from `cnbssa/my_filer` tracking `main`.
+2. Don't set Root Directory. Railway picks up `./Dockerfile` + `./railway.json`.
+3. Attach the Postgres plugin, set env vars (§3).
+
+This gets the API live with one click. For the web app, create a second
+service per 2b.
+
+### Option 2b — Two services (API + Web)
+
+1. Create a Railway service, set **Settings → Source → Root Directory** to `apps/api`.
+2. Create a second service from the same repo, Root Directory = `apps/web`.
+3. Attach Postgres, set env vars.
+
+Without Root Directory AND without the root-level Dockerfile, Railway
+falls back to Railpack auto-detect and fails in 8 seconds with
+`Error creating build plan with Railpack`. Either path (2a or 2b)
+fixes that.
 3. Add the **Postgres** plugin to the project. Railway injects
    `DATABASE_URL` automatically into every service that requests it.
    - On the API service, add a reference variable:
@@ -61,12 +74,28 @@ auto-detection, which fails on monorepos without explicit hints.
      build time, so this must be set **before** the first web build.
 5. Deploy — Railway will build both services on the first push to `main`.
 
-### Troubleshooting: "Error creating build plan with Railpack"
+### Troubleshooting Railway builds
 
-This means Railway is running Railpack against the repo root instead
-of the service's subdirectory. Set the service's Root Directory per
-step 2. The Dockerfiles are the declarative source of truth; Railway
-never has to guess.
+**"Error creating build plan with Railpack"** — Railway is running
+Railpack against the repo root with no Dockerfile. Either set Root
+Directory (2b) or pull the latest main which ships the root-level
+`./Dockerfile` (2a).
+
+**Build fails in ~8 seconds with "Failed to build an image"** — same
+cause as above. Railway never entered the build; confirm with the
+check below.
+
+**Build stages, in order:**
+1. `Initialization` — clone repo, set up runner (~5-10s).
+2. `Build › Build image` — docker build runs. First API build is
+   60-180s; subsequent builds hit cache and are ~20-40s.
+3. `Deploy` — container boots, `preDeployCommand: alembic upgrade head`
+   runs (this is where a missing `DATABASE_URL` bites).
+4. `Post-deploy` — healthcheck (`/health` on API, `/` on web).
+
+An 8-second failure at stage 2 is always a "Railway couldn't find a
+Dockerfile" problem, never a database / env var / alembic problem —
+those only surface at stage 3.
 
 ## 3. Required environment variables
 

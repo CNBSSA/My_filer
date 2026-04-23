@@ -1,0 +1,56 @@
+# Root-level .dockerignore — keeps Railway's build context small when
+# building the API from the repo root via ./Dockerfile.
+#
+# Anything listed here is excluded from the build context. Everything
+# under apps/api/ stays in (that's the actual source we need); the web
+# app, docs, CI, and local dev artefacts are excluded so the image
+# doesn't balloon.
+
+# The whole web app is built by a separate Railway service rooted at
+# apps/web/, so we don't need it here.
+apps/web
+
+# Docs ship via the repo, not the container.
+docs
+
+# CI config is read by GitHub Actions, never by the container.
+.github
+
+# Local dev
+docker-compose.yml
+.env
+.env.*
+!.env.example
+
+# Python cruft
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.tox
+.coverage
+coverage.xml
+.venv
+venv
+env
+
+# DB snapshots
+*.db
+*.sqlite
+*.sqlite3
+
+# Node cruft (from apps/web if not already excluded)
+node_modules
+.next
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+
+# Git
+.git
+.gitignore
