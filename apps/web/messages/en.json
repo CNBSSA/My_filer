@@ -31,5 +31,21 @@
     "nameMatchFuzzy": "The name is a close match to the NIN record.",
     "nameMatchMismatch": "The name does not match the NIN record. Double-check before filing.",
     "backToChat": "Continue to chat"
+  },
+  "dashboard": {
+    "title": "Your Mai Filer dashboard",
+    "subtitle": "Year-over-year tax history, anomalies, and mid-year nudges.",
+    "filtersNinLabel": "NIN hash (optional filter)",
+    "filtersYearLabel": "Tax year",
+    "filtersYtdLabel": "YTD gross (for nudges)",
+    "filtersMonthLabel": "Month (1-12, for nudges)",
+    "refresh": "Refresh",
+    "factsHeading": "Year-over-year facts",
+    "factsEmpty": "No facts yet. Once you submit (or simulate) a filing, Mai stores the headline numbers here so next year's return starts with context.",
+    "anomaliesHeading": "Anomalies",
+    "anomaliesEmpty": "No significant year-over-year changes detected.",
+    "nudgesHeading": "Mid-year nudges",
+    "nudgesEmpty": "Nothing to flag for the current pace. Check back after your next paycheque or invoice.",
+    "backToChat": "Back to chat"
   }
 }

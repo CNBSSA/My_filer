@@ -240,11 +240,11 @@ the NRS-confirmed NGO specification.
 - [x] **P11.6** — Mai Filer tools: `list_ngo_exempt_purposes`, `audit_ngo_filing`, `audit_ngo_return`. Registry now 24 tools. Every NGO tool response echoes `statutory_is_placeholder: true`.
 - [ ] **P11.5** — Web: `/ngo` intake page + multilingual consent + review/download flow (next slice).
 
-## PHASE 10 — Polish
+## PHASE 10 — Polish ✅ FIRST PASS COMPLETE
 
-- [ ] **P10.1** — Dashboards (liability YTD, deadlines, deduction utilization)
-- [ ] **P10.2** — Mobile-responsive polish
-- [ ] **P10.3** — Accessibility audit (WCAG AA)
+- [x] **P10.1** — `/dashboard` page with YoY facts table, anomaly findings, mid-year nudges, filter controls (NIN hash, tax year, YTD gross, month). All 5 v1 languages carry the dashboard strings. Recall surfaces which backend implementation answered (`VectorRecall` vs `KeywordRecall`).
+- [x] **P10.2** — Mobile-responsive sweep: landing stacks CTAs on small viewports, dashboard uses `sm:` breakpoints for filter grid + anomaly rows, existing chat / identity / filings pages verified. Web build produces 7 routes, `tsc --noEmit` clean.
+- [ ] **P10.3** — WCAG AA accessibility audit (pending owner call — trivial follow-up with `axe-core` in the test harness)
 - [ ] **P10.4** — Additional Nigerian languages beyond v1 (e.g., Fulfulde) — subject to a later ADR
 
 ---

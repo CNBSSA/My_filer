@@ -31,5 +31,21 @@
     "nameMatchFuzzy": "Aha ahụ dị nso na ndekọ NIN.",
     "nameMatchMismatch": "Aha ahụ adabaghị na ndekọ NIN. Lelee ya ọzọ tupu ịdebanye.",
     "backToChat": "Gaa n'ihu na nkata"
+  },
+  "dashboard": {
+    "title": "Dashboard Mai Filer gi",
+    "subtitle": "Akuko utu isi kwa afo, ihe iche, na ndumodu n'etiti afo.",
+    "filtersNinLabel": "Hash NIN (nhota nzacha)",
+    "filtersYearLabel": "Afo utu isi",
+    "filtersYtdLabel": "Gross ruo ugbu a (maka ndumodu)",
+    "filtersMonthLabel": "Onwa (1-12, maka ndumodu)",
+    "refresh": "Megharia",
+    "factsHeading": "Eziokwu kwa afo",
+    "factsEmpty": "Enwebeghi eziokwu. Mgbe izipuru (ma obu megharia) faịlụ, Mai ga-echekwa isi nọmba ndị ebe a.",
+    "anomaliesHeading": "Ihe iche",
+    "anomaliesEmpty": "Achoputaghi mgbanwe di mkpa kwa afo.",
+    "nudgesHeading": "Ndumodu n'etiti afo",
+    "nudgesEmpty": "Onweghi ihe a ga-akowa ugbu a. Bia oge ozo mgbe i natara ugwo onwa ma obu invoice na-esote.",
+    "backToChat": "Laghachi na nkata"
   }
 }

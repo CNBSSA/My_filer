@@ -31,5 +31,21 @@
     "nameMatchFuzzy": "Oruko naa sunmo igbasile NIN.",
     "nameMatchMismatch": "Oruko naa ko baramu si igbasile NIN. Tun wo o saaju ki o to fi ranse.",
     "backToChat": "Tesiwaju si iforowanilenuwo"
+  },
+  "dashboard": {
+    "title": "Dashboard Mai Filer re",
+    "subtitle": "Itan owo ori lati odun de odun, awon iyato, ati awon ikilo larin odun.",
+    "filtersNinLabel": "Hash ti NIN (asayan yiyan)",
+    "filtersYearLabel": "Odun owo ori",
+    "filtersYtdLabel": "Gross lati ibere odun (fun awon ikilo)",
+    "filtersMonthLabel": "Osu (1-12, fun awon ikilo)",
+    "refresh": "Tunse",
+    "factsHeading": "Awon otito odun de odun",
+    "factsEmpty": "Ko si awon otito sibe. Lehin ti o ba fi file ranse (tabi apere), Mai yoo fi awon pataki pamo sibi.",
+    "anomaliesHeading": "Awon iyato",
+    "anomaliesEmpty": "Ko si iyipada pataki lati odun de odun.",
+    "nudgesHeading": "Awon ikilo larin odun",
+    "nudgesEmpty": "Ko si ohunkohun lati samo bayi. Pada lehin owo osu tabi iwe-ise to nbo.",
+    "backToChat": "Pada si iforowanilenuwo"
   }
 }

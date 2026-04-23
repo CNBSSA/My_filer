@@ -31,5 +31,21 @@
     "nameMatchFuzzy": "Sunan yana kusa da rikodin NIN.",
     "nameMatchMismatch": "Sunan ba ya yi daidai da rikodin NIN ba. Sake duba kafin ka aika.",
     "backToChat": "Ci gaba zuwa hira"
+  },
+  "dashboard": {
+    "title": "Dashboard dinka na Mai Filer",
+    "subtitle": "Tarihin haraji na shekara, sauye-sauye, da shawarwari a tsakiyar shekara.",
+    "filtersNinLabel": "Hash na NIN (tace na zabi)",
+    "filtersYearLabel": "Shekarar haraji",
+    "filtersYtdLabel": "Kudin shiga har yanzu (don shawarwari)",
+    "filtersMonthLabel": "Wata (1-12, don shawarwari)",
+    "refresh": "Sabunta",
+    "factsHeading": "Bayanai na shekara da shekara",
+    "factsEmpty": "Babu bayanai tukuna. Bayan ka aika (ko ka yi kwaikwayo) fayil, Mai za ta adana manyan lambobin nan.",
+    "anomaliesHeading": "Sauye-sauye",
+    "anomaliesEmpty": "Ba a gano wani muhimmin canji a shekara zuwa shekara ba.",
+    "nudgesHeading": "Shawarwari a tsakiyar shekara",
+    "nudgesEmpty": "Babu abin da za a nuna yanzu. Dawo bayan albashi ko daftari na gaba.",
+    "backToChat": "Koma hira"
   }
 }

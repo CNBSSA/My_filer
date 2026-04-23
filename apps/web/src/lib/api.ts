@@ -173,6 +173,95 @@ export async function verifyIdentity(input: {
   return response.json();
 }
 
+// ---------------------------------------------------------------------------
+// Memory (Phase 8 + P8.10)
+// ---------------------------------------------------------------------------
+
+export interface YearlyFact {
+  id: string;
+  tax_year: number;
+  fact_type: string;
+  value: string;
+  value_kind: string;
+  unit: string;
+  source: string;
+  label: string | null;
+  meta: Record<string, unknown> | null;
+  recorded_at: string;
+  filing_id: string | null;
+}
+
+export interface AnomalyFinding {
+  fact_type: string;
+  severity: "info" | "watch" | "alert";
+  prior_year: number;
+  current_year: number;
+  prior_value: string;
+  current_value: string;
+  pct_change: string;
+  message: string;
+}
+
+export interface MidYearNudge {
+  code: string;
+  severity: "info" | "watch" | "alert";
+  message: string;
+  meta: Record<string, string>;
+}
+
+export async function getFacts(params: {
+  nin_hash?: string | null;
+  tax_year?: number;
+  fact_type?: string;
+  limit?: number;
+}): Promise<{ facts: YearlyFact[] }> {
+  const qs = new URLSearchParams();
+  if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
+  if (params.tax_year !== undefined) qs.set("tax_year", String(params.tax_year));
+  if (params.fact_type) qs.set("fact_type", params.fact_type);
+  if (params.limit) qs.set("limit", String(params.limit));
+  return _json(await fetch(`${API_BASE}/v1/memory/facts?${qs.toString()}`));
+}
+
+export async function recallMemory(params: {
+  q: string;
+  nin_hash?: string | null;
+  limit?: number;
+}): Promise<{ facts: YearlyFact[]; mode?: string }> {
+  const qs = new URLSearchParams({ q: params.q });
+  if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
+  if (params.limit) qs.set("limit", String(params.limit));
+  return _json(await fetch(`${API_BASE}/v1/memory/recall?${qs.toString()}`));
+}
+
+export async function getAnomalies(params: {
+  current_year: number;
+  nin_hash?: string | null;
+  prior_year?: number;
+}): Promise<{ findings: AnomalyFinding[] }> {
+  const qs = new URLSearchParams({ current_year: String(params.current_year) });
+  if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
+  if (params.prior_year !== undefined) qs.set("prior_year", String(params.prior_year));
+  return _json(await fetch(`${API_BASE}/v1/memory/anomalies?${qs.toString()}`));
+}
+
+export async function getNudges(params: {
+  current_year: number;
+  ytd_gross: string | number;
+  month: number;
+  nin_hash?: string | null;
+  prior_year?: number;
+}): Promise<{ nudges: MidYearNudge[] }> {
+  const qs = new URLSearchParams({
+    current_year: String(params.current_year),
+    ytd_gross: String(params.ytd_gross),
+    month: String(params.month),
+  });
+  if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
+  if (params.prior_year !== undefined) qs.set("prior_year", String(params.prior_year));
+  return _json(await fetch(`${API_BASE}/v1/memory/nudges?${qs.toString()}`));
+}
+
 export type ChatStreamEvent = "start" | "delta" | "done";
 
 export interface ChatStreamChunk {
