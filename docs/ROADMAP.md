@@ -211,23 +211,34 @@ run until these drop in:
 - [x] **P9.8** — Mai Filer tools: `calc_cit`, `calc_wht`, `list_wht_classes`, `validate_ubl_envelope`. Registry is now 17 tools. `compose_einvoice` and `submit_mbs` land with P9.5 / P9.4.
 - [ ] **P9.9** — Landing + chat UI: "I'm filing for a business" entry path.
 
-## PHASE 11 — NGO / Tax-Exempt Bodies — **v2+**
+## PHASE 11 — NGO / Tax-Exempt Bodies ✅ BACKEND SCAFFOLD COMPLETE
 
-Not on the current roadmap until the owner supplies:
+Scaffolded under ADR-0005's quarantined-placeholder pattern — all the
+mechanical logic works against illustrative rules so the full file /
+audit / pack / Mai-tool loop is demonstrable today. The **rates /
+criteria / form fields** land in a single file when the owner supplies
+the NRS-confirmed NGO specification.
 
-- NRS tax treatment for registered NGOs (income-tax exemption criteria,
-  WHT remittance obligations on payments made by NGOs).
-- NGO-specific return forms / cycles (annual report, WHT schedule, etc.).
-- CAC part-C registration handling (distinct from regular CAC RC).
+### Data the owner must supply
 
-### Implementation tasks (post-data)
+- NRS exempt-purpose enumeration → `apps/api/app/tax/statutory/ngo_rules.py`
+  (`NGO_EXEMPT_PURPOSES`).
+- CAC Part-C RC number pattern → same file (`NGO_CAC_PART_C_PATTERN`).
+- NGO-specific WHT rates (if different from the general schedule) →
+  same file (`NGO_WHT_REMITTANCE`).
+- Annual filing window + cycle → same file (`NGO_FILING_WINDOW_MONTHS`).
+- NRS-published NGO return form (to drive the PDF renderer beyond the
+  v1 shim over the Phase 4 renderer).
 
-- [ ] **P11.1** — NGO taxpayer schema (CAC Part-C, exemption reference)
-- [ ] **P11.2** — WHT remittance schedule calculator
-- [ ] **P11.3** — Annual NGO return pack (PDF + JSON)
-- [ ] **P11.4** — Audit Shield NGO-specific checks (proper exemption status,
-      WHT collected matches remitted, etc.)
-- [ ] **P11.5** — UI path "I am filing for an NGO"
+### Implementation tasks
+
+- [x] **P11.0** — `tax/statutory/ngo_rules.py` — placeholder exempt-purpose list, CAC Part-C pattern, WHT remittance schedule, annual filing window. `NGO_RULES_SOURCE="PLACEHOLDER:..."` until owner replaces.
+- [x] **P11.1** — `filing/ngo_schemas.py` — `Organization`, `NGOIncomeBlock`, `NGOExpenditureBlock`, `WHTScheduleRow`, `NGOReturn`. CAC Part-C is the primary identifier; distinct from individual NIN + corporate Part-A RC.
+- [x] **P11.2** — `filing/ngo_serialize.py` — `compute_return_totals()` + `build_canonical_pack()` emit stable-keyed `mai-filer-ngo-v1` packs with surplus/deficit/balanced direction.
+- [x] **P11.3** — `filing/ngo_service.py` + `api/ngo_filings.py`: `POST/PUT/GET /v1/ngo-filings`, `/{id}/audit`, `/{id}/pack`, `/{id}/pack.pdf|json`. Filing.tax_kind discriminator (`pit | ngo_annual`) + alembic `0007_filing_tax_kind`. NGO PDF reuses the Phase 4 renderer via an adapter; dedicated renderer lands once NRS publishes the NGO form.
+- [x] **P11.4** — `filing/ngo_audit.py` — 11 NGO-specific checks: CAC Part-C pattern, legal name, future tax year, purpose recognition, negative totals, per-row WHT sanity, schedule total consistency, exemption + declaration affirmations, empty-return guard, programme-evidence expectation.
+- [x] **P11.6** — Mai Filer tools: `list_ngo_exempt_purposes`, `audit_ngo_filing`, `audit_ngo_return`. Registry now 24 tools. Every NGO tool response echoes `statutory_is_placeholder: true`.
+- [ ] **P11.5** — Web: `/ngo` intake page + multilingual consent + review/download flow (next slice).
 
 ## PHASE 10 — Polish
 

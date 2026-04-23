@@ -22,6 +22,13 @@ from typing import Any, Callable
 from app.db.models import Document, Filing
 from app.db.session import get_session
 from app.documents.storage import get_default_storage
+from app.filing.ngo_audit import audit as run_ngo_audit
+from app.filing.ngo_schemas import NGOReturn
+from app.filing.ngo_service import (
+    audit_ngo_filing,
+    create_ngo_filing,
+    generate_ngo_pack,
+)
 from app.filing.service import PackNotReadyError, audit_filing, generate_pack
 from app.gateway.service import SubmissionConfigError, submit_filing_to_nrs
 from app.identity.base import AggregatorError
@@ -37,7 +44,14 @@ from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
 from app.tax.pit import calculate_pit_2026
 from app.tax.reliefs import ReliefScenario, explore_reliefs
-from app.tax.statutory import CIT_SOURCE, UBL_SOURCE, WHT_SOURCE, is_placeholder
+from app.tax.statutory import (
+    CIT_SOURCE,
+    NGO_EXEMPT_PURPOSES,
+    NGO_RULES_SOURCE,
+    UBL_SOURCE,
+    WHT_SOURCE,
+    is_placeholder,
+)
 from app.tax.vat import (
     calculate_vat,
     distance_to_threshold,
@@ -255,6 +269,69 @@ def _run_list_wht_classes() -> dict[str, Any]:
         "classes": known_transaction_classes(),
         "statutory_source": WHT_SOURCE,
         "statutory_is_placeholder": is_placeholder(WHT_SOURCE),
+    }
+
+
+# ---------------------------------------------------------------------------
+# NGO tools (Phase 11)
+# ---------------------------------------------------------------------------
+
+
+def _run_list_ngo_exempt_purposes() -> dict[str, Any]:
+    return {
+        "purposes": list(NGO_EXEMPT_PURPOSES),
+        "statutory_source": NGO_RULES_SOURCE,
+        "statutory_is_placeholder": is_placeholder(NGO_RULES_SOURCE),
+    }
+
+
+def _run_audit_ngo_filing(filing_id: str) -> dict[str, Any]:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        filing = session.get(Filing, filing_id)
+        if filing is None:
+            return {"error": f"filing not found: {filing_id}"}
+        if filing.tax_kind != "ngo_annual":
+            return {
+                "error": (
+                    f"filing {filing_id} is tax_kind={filing.tax_kind!r} — "
+                    "audit_ngo_filing only handles 'ngo_annual'. Use "
+                    "audit_filing for PIT."
+                ),
+                "reason": "tax_kind_mismatch",
+            }
+        report = audit_ngo_filing(session=session, filing=filing)
+        return {
+            "filing_id": filing.id,
+            "tax_year": filing.tax_year,
+            "tax_kind": filing.tax_kind,
+            "status": report.status,
+            "findings": [f.to_dict() for f in report.findings],
+            "statutory_source": NGO_RULES_SOURCE,
+            "statutory_is_placeholder": is_placeholder(NGO_RULES_SOURCE),
+        }
+    finally:
+        session_gen.close()
+
+
+def _run_audit_ngo_return(return_: dict[str, Any]) -> dict[str, Any]:
+    """Audit an NGO return payload without persisting it.
+
+    Useful when Mai is helping a user draft a return in-conversation —
+    she can run the Audit Shield against the in-memory dict and surface
+    findings before the user commits to creating a filing.
+    """
+    try:
+        typed = NGOReturn.model_validate(return_)
+    except Exception as exc:
+        return {"error": f"return failed schema parse: {exc}"}
+    report = run_ngo_audit(typed)
+    return {
+        "status": report.status,
+        "findings": [f.to_dict() for f in report.findings],
+        "statutory_source": NGO_RULES_SOURCE,
+        "statutory_is_placeholder": is_placeholder(NGO_RULES_SOURCE),
     }
 
 
@@ -855,6 +932,53 @@ TOOLS: tuple[Tool, ...] = (
             "required": ["envelope"],
         },
         run=_run_validate_ubl_envelope,
+    ),
+    Tool(
+        name="list_ngo_exempt_purposes",
+        description=(
+            "Return the list of organisational purposes that currently "
+            "qualify a Nigerian body for tax-exempt status. The response "
+            "surfaces whether the underlying statutory table is still a "
+            "placeholder — caveat any advice accordingly."
+        ),
+        input_schema={"type": "object", "properties": {}},
+        run=_run_list_ngo_exempt_purposes,
+    ),
+    Tool(
+        name="audit_ngo_filing",
+        description=(
+            "Run the NGO Audit Shield on an existing filing by id. Returns "
+            "status (green|yellow|red) and findings. Use this before you "
+            "offer the user a downloadable NGO pack. Rejects filings whose "
+            "tax_kind is not 'ngo_annual'."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "filing_id": {"type": "string", "description": "UUID of the filing."}
+            },
+            "required": ["filing_id"],
+        },
+        run=_run_audit_ngo_filing,
+    ),
+    Tool(
+        name="audit_ngo_return",
+        description=(
+            "Run the NGO Audit Shield against an NGO return dict that hasn't "
+            "been saved yet. Use this while helping the user draft a return "
+            "— you can surface findings conversationally before committing."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "return_": {
+                    "type": "object",
+                    "description": "An NGOReturn payload (organization, income, expenditure, ...).",
+                }
+            },
+            "required": ["return_"],
+        },
+        run=_run_audit_ngo_return,
     ),
     Tool(
         name="submit_to_nrs",

@@ -116,6 +116,11 @@ class Filing(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tax_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    # "pit" | "cit" | "ngo_annual" — discriminates which return schema
+    # / audit module / serializer to use for this filing.
+    tax_kind: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pit"
+    )
     return_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     audit_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="pending"

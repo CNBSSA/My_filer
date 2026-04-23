@@ -23,6 +23,14 @@ from app.tax.statutory.wht_rates import (
     WHT_RATES_2026,
     WHT_SOURCE,
 )
+from app.tax.statutory.ngo_rules import (
+    NGO_CAC_PART_C_PATTERN,
+    NGO_EXEMPT_PURPOSES,
+    NGO_FILING_WINDOW_MONTHS,
+    NGO_RULES_SOURCE,
+    NGO_WHT_REMITTANCE,
+    known_exempt_purposes,
+)
 from app.tax.statutory.ubl_fields import (
     UBL_REQUIRED_FIELDS_2026,
     UBL_SECTIONS,
@@ -54,6 +62,11 @@ __all__ = [
     "CIT_BANDS_2026",
     "CIT_SOURCE",
     "CIT_TERTIARY_RATE",
+    "NGO_CAC_PART_C_PATTERN",
+    "NGO_EXEMPT_PURPOSES",
+    "NGO_FILING_WINDOW_MONTHS",
+    "NGO_RULES_SOURCE",
+    "NGO_WHT_REMITTANCE",
     "PlaceholderStatutoryError",
     "UBL_REQUIRED_FIELDS_2026",
     "UBL_SECTIONS",
@@ -62,4 +75,5 @@ __all__ = [
     "WHT_SOURCE",
     "assert_confirmed",
     "is_placeholder",
+    "known_exempt_purposes",
 ]

@@ -118,14 +118,25 @@ the full unlock path.
 
 ## 4. Phase 11 — NGO / Tax-Exempt
 
-Not started. Needs owner input on:
+Backend scaffold is live (see `ROADMAP.md` Phase 11 for the file-path
+inventory). Quarantined placeholders behind the same `_SOURCE` guard
+pattern as Phase 9; flip to real rules by editing
+`apps/api/app/tax/statutory/ngo_rules.py`.
 
-- NRS exemption criteria for registered NGOs
-- NGO-specific return forms + cycles
-- WHT remittance obligations on payments **made by** NGOs
-- CAC Part-C registration treatment (distinct from a commercial RC)
+### Data the owner must supply
 
-Implementation tasks (when data arrives) are listed in `ROADMAP.md` §11.
+- NRS-recognised exempt-purpose list → `NGO_EXEMPT_PURPOSES`.
+- CAC Part-C RC number format → `NGO_CAC_PART_C_PATTERN`.
+- NGO-specific WHT rates (if distinct from the general schedule) →
+  `NGO_WHT_REMITTANCE`.
+- Annual filing window / cycle → `NGO_FILING_WINDOW_MONTHS`.
+- NRS NGO return form template (to drive a dedicated PDF renderer
+  instead of the v1 shim over `filing/pdf.py`).
+
+### Remaining work (unblocks immediately after web UI design choice)
+
+- P11.5 — `/ngo` intake page with multilingual consent + review/download
+  flow (mirrors `/identity` and `/filings/[id]`).
 
 ---
 

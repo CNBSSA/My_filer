@@ -42,6 +42,9 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "recall_memory",
         "detect_yoy_anomalies",
         "suggest_mid_year_nudges",
+        "list_ngo_exempt_purposes",
+        "audit_ngo_filing",
+        "audit_ngo_return",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -519,6 +522,71 @@ def test_memory_tools_round_trip_via_registry(db_session, override_db) -> None:
     )
     codes = {n["code"] for n in nudges["nudges"]}
     assert "VAT_THRESHOLD_APPROACH" in codes
+
+
+def test_list_ngo_exempt_purposes_surfaces_placeholder() -> None:
+    payload = json.loads(run_tool("list_ngo_exempt_purposes", {}))
+    assert "charitable" in payload["purposes"]
+    assert payload["statutory_is_placeholder"] is True
+
+
+def test_audit_ngo_return_tool_green_path() -> None:
+    from datetime import date
+    from decimal import Decimal as D
+
+    from app.filing.ngo_schemas import (
+        NGOExpenditureBlock,
+        NGOIncomeBlock,
+        NGOReturn,
+        Organization,
+        WHTScheduleRow,
+    )
+
+    return_dict = NGOReturn(
+        tax_year=2026,
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 12, 31),
+        organization=Organization(
+            cac_part_c_rc="IT-555000",
+            legal_name="Exempt Body",
+            purpose="charitable",
+        ),
+        income=NGOIncomeBlock(local_donations=D("2000000")),
+        expenditure=NGOExpenditureBlock(program_expenses=D("1500000")),
+        wht_schedule=[
+            WHTScheduleRow(
+                period_month=2,
+                transaction_class="rent",
+                recipient_category="corporate",
+                gross_amount=D("500000"),
+                wht_amount=D("50000"),
+            )
+        ],
+        supporting_document_ids=["doc-1"],
+        exemption_status_declaration=True,
+        declaration=True,
+    ).model_dump(mode="json")
+    payload = json.loads(run_tool("audit_ngo_return", {"return_": return_dict}))
+    assert payload["status"] == "green"
+    assert payload["statutory_is_placeholder"] is True
+
+
+def test_audit_ngo_filing_tool_rejects_wrong_tax_kind(db_session, override_db) -> None:
+    """Guard against using the NGO auditor on a PIT filing."""
+    filing = Filing(
+        id="wrong-kind",
+        tax_year=2026,
+        tax_kind="pit",
+        return_json={},
+        audit_status="pending",
+    )
+    db_session.add(filing)
+    db_session.commit()
+    payload = json.loads(
+        run_tool("audit_ngo_filing", {"filing_id": "wrong-kind"})
+    )
+    assert "error" in payload
+    assert payload["reason"] == "tax_kind_mismatch"
 
 
 def test_submit_to_nrs_tool_simulates_without_creds(db_session, override_db) -> None:
