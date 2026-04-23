@@ -34,7 +34,11 @@ See `docs/DECISIONS.md` (ADR-0002) for the locked v1 scope and
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — system layout
 - [`docs/COMPLIANCE.md`](./docs/COMPLIANCE.md) — NDPR, NITDA, NTAA, UBL 3.0
 - [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs (plan, v1 scope, Dojah, multilingual)
-- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — Railway setup, env vars, release flow
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — Railway setup, env vars, release flow (preview only)
+- [`docs/PRODUCTION_AWS.md`](./docs/PRODUCTION_AWS.md) — AWS production architecture + owner checklist
+- [`docs/NDPC_AUDIT_TEMPLATE.md`](./docs/NDPC_AUDIT_TEMPLATE.md) — DPCA audit workflow
+- [`docs/NITDA_CLEARANCE_TEMPLATE.md`](./docs/NITDA_CLEARANCE_TEMPLATE.md) — NITDA clearance submission package
+- [`docs/PENDING_WORK.md`](./docs/PENDING_WORK.md) — memory anchor for everything not yet shipped
 - [`docs/ROADMAP.md`](./docs/ROADMAP.md) — phased, smallest-task breakdown
 
 ## Repo layout

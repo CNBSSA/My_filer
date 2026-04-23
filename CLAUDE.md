@@ -102,6 +102,11 @@ Do not swap any of these without express approval.
 - **Roles** (detailed): `docs/ROLES.md`
 - **Architecture**: `docs/ARCHITECTURE.md`
 - **Compliance**: `docs/COMPLIANCE.md`
+- **Deployment — Railway (preview only)**: `docs/DEPLOYMENT.md`
+- **Deployment — AWS (production)**: `docs/PRODUCTION_AWS.md`
+- **NDPC DPCA audit template**: `docs/NDPC_AUDIT_TEMPLATE.md`
+- **NITDA clearance submission template**: `docs/NITDA_CLEARANCE_TEMPLATE.md`
+- **Pending work memory anchor**: `docs/PENDING_WORK.md`
 - **Roadmap with smallest-task breakdown**: `docs/ROADMAP.md`
 
 ## 7. Change Control
