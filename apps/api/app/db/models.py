@@ -178,6 +178,39 @@ class ConsentLog(Base):
     )
 
 
+class YearlyFact(Base):
+    """Year-over-year facts about a taxpayer — the backbone of Role 8
+    (Learning Partner).
+
+    One row per (nin_hash, tax_year, fact_type, source). Values are stored
+    as pre-quantized strings so Decimal precision survives both Postgres
+    (NUMERIC) and SQLite (TEXT) cleanly.
+    """
+
+    __tablename__ = "yearly_facts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_nin_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    filing_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("filings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tax_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    fact_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(64), nullable=False)
+    value_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="decimal")
+    # "decimal" | "rate" | "count" | "text"
+    unit: Mapped[str] = mapped_column(String(16), nullable=False, default="NGN")
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="filing")
+    # "filing" | "user_declared" | "derived" | "simulated"
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    meta_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+
 class IdentityRecord(Base):
     """Latest verified identity for a NIN hash.
 

@@ -38,6 +38,10 @@ def test_tool_registry_exposes_expected_tools() -> None:
         "calc_wht",
         "list_wht_classes",
         "validate_ubl_envelope",
+        "list_user_facts",
+        "recall_memory",
+        "detect_yoy_anomalies",
+        "suggest_mid_year_nudges",
     ]:
         assert expected in names, f"missing tool: {expected}"
 
@@ -457,6 +461,64 @@ def test_validate_ubl_envelope_tool_flags_missing_fields() -> None:
     assert payload["statutory_is_placeholder"] is True
     codes = {f["code"] for f in payload["findings"]}
     assert "UBL-SECTION-COUNT" in codes
+
+
+def test_memory_tools_round_trip_via_registry(db_session, override_db) -> None:
+    """P8.9 — record a fact through the repository, then recall it via the
+    Mai tool surface."""
+    from app.memory.facts import record_fact
+    from decimal import Decimal as D
+
+    record_fact(
+        db_session,
+        user_nin_hash="h",
+        tax_year=2025,
+        fact_type="annual_gross_income",
+        value=D("5000000"),
+        label="2025 gross",
+    )
+    record_fact(
+        db_session,
+        user_nin_hash="h",
+        tax_year=2026,
+        fact_type="annual_gross_income",
+        value=D("10000000"),
+        label="2026 gross",
+    )
+    db_session.commit()
+
+    # list_user_facts.
+    facts = json.loads(run_tool("list_user_facts", {"nin_hash": "h"}))
+    assert len(facts["facts"]) == 2
+
+    # recall_memory.
+    hits = json.loads(run_tool("recall_memory", {"query": "gross", "nin_hash": "h"}))
+    assert len(hits["facts"]) >= 1
+
+    # detect_yoy_anomalies — 100% jump between 2025 and 2026.
+    anomalies = json.loads(
+        run_tool(
+            "detect_yoy_anomalies",
+            {"current_year": 2026, "nin_hash": "h"},
+        )
+    )
+    assert len(anomalies["findings"]) == 1
+    assert anomalies["findings"][0]["severity"] == "alert"
+
+    # suggest_mid_year_nudges — approaching VAT threshold.
+    nudges = json.loads(
+        run_tool(
+            "suggest_mid_year_nudges",
+            {
+                "current_year": 2026,
+                "ytd_gross": 42_000_000,
+                "month": 6,
+                "nin_hash": "h",
+            },
+        )
+    )
+    codes = {n["code"] for n in nudges["nudges"]}
+    assert "VAT_THRESHOLD_APPROACH" in codes
 
 
 def test_submit_to_nrs_tool_simulates_without_creds(db_session, override_db) -> None:

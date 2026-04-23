@@ -28,6 +28,10 @@ from app.identity.base import AggregatorError
 from app.identity.factory import build_identity_service
 from app.identity.service import ConsentRequiredError
 from app.filing.ubl import UBLEnvelope, validate_envelope
+from app.memory.anomalies import detect_anomalies
+from app.memory.facts import fact_to_dict, list_facts
+from app.memory.nudges import suggest_nudges
+from app.memory.recall import KeywordRecall
 from app.tax.cit import calculate_cit_2026
 from app.tax.dev_levy import calculate_dev_levy
 from app.tax.paye import calculate_paye
@@ -252,6 +256,89 @@ def _run_list_wht_classes() -> dict[str, Any]:
         "statutory_source": WHT_SOURCE,
         "statutory_is_placeholder": is_placeholder(WHT_SOURCE),
     }
+
+
+# ---------------------------------------------------------------------------
+# Memory tools (Phase 8 — Learning Partner)
+# ---------------------------------------------------------------------------
+
+
+def _run_list_user_facts(
+    nin_hash: str | None = None,
+    tax_year: int | None = None,
+    fact_type: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        rows = list_facts(
+            session,
+            user_nin_hash=nin_hash,
+            tax_year=tax_year,
+            fact_type=fact_type,
+            limit=limit,
+        )
+        return {"facts": [fact_to_dict(r) for r in rows]}
+    finally:
+        session_gen.close()
+
+
+def _run_recall_memory(
+    query: str,
+    nin_hash: str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        recaller = KeywordRecall(session)
+        rows = recaller.recall(user_nin_hash=nin_hash, query=query, limit=limit)
+        return {"facts": [fact_to_dict(r) for r in rows]}
+    finally:
+        session_gen.close()
+
+
+def _run_detect_yoy_anomalies(
+    current_year: int,
+    nin_hash: str | None = None,
+    prior_year: int | None = None,
+) -> dict[str, Any]:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        findings = detect_anomalies(
+            session,
+            user_nin_hash=nin_hash,
+            current_year=current_year,
+            prior_year=prior_year,
+        )
+        return {"findings": [f.to_dict() for f in findings]}
+    finally:
+        session_gen.close()
+
+
+def _run_suggest_mid_year_nudges(
+    current_year: int,
+    ytd_gross: float | int | str,
+    month: int,
+    nin_hash: str | None = None,
+    prior_year: int | None = None,
+) -> dict[str, Any]:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        items = suggest_nudges(
+            session,
+            user_nin_hash=nin_hash,
+            current_year=current_year,
+            ytd_gross=Decimal(str(ytd_gross)),
+            month=month,
+            prior_year=prior_year,
+        )
+        return {"nudges": [n.to_dict() for n in items]}
+    finally:
+        session_gen.close()
 
 
 def _run_validate_ubl_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
@@ -795,6 +882,84 @@ TOOLS: tuple[Tool, ...] = (
             "required": ["filing_id"],
         },
         run=_run_submit_to_nrs,
+    ),
+    Tool(
+        name="list_user_facts",
+        description=(
+            "List structured year-over-year facts Mai has stored about the "
+            "taxpayer (gross income, PIT, effective rate, deductions, "
+            "submission receipts). Use this when the user asks about their "
+            "history; filter by `nin_hash`, `tax_year`, and/or `fact_type`."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "nin_hash": {"type": ["string", "null"]},
+                "tax_year": {"type": ["integer", "null"]},
+                "fact_type": {"type": ["string", "null"]},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 50},
+            },
+        },
+        run=_run_list_user_facts,
+    ),
+    Tool(
+        name="recall_memory",
+        description=(
+            "Keyword-based recall across the taxpayer's history. Pass a free-"
+            "text `query` — matches are ranked by token coverage then "
+            "recency. Use this when the user asks vague 'did I…' / 'what "
+            "was that…' questions."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "minLength": 1},
+                "nin_hash": {"type": ["string", "null"]},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 10},
+            },
+            "required": ["query"],
+        },
+        run=_run_recall_memory,
+    ),
+    Tool(
+        name="detect_yoy_anomalies",
+        description=(
+            "Compare this year's money-valued facts against last year's "
+            "and return the significant deltas (watch: 25-50%, alert: 50%+). "
+            "Call this before preparing a filing so you can proactively "
+            "raise anything unusual."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "current_year": {"type": "integer"},
+                "nin_hash": {"type": ["string", "null"]},
+                "prior_year": {"type": ["integer", "null"]},
+            },
+            "required": ["current_year"],
+        },
+        run=_run_detect_yoy_anomalies,
+    ),
+    Tool(
+        name="suggest_mid_year_nudges",
+        description=(
+            "Mid-year check-in. Given the taxpayer's YTD gross and the "
+            "month they're through, annualize the figure and flag: "
+            ">=30% YoY pace change (watch), PIT band crossings (alert), "
+            "approach to or crossing of the ₦100m VAT threshold."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "current_year": {"type": "integer"},
+                "ytd_gross": {"type": "number", "minimum": 0},
+                "month": {"type": "integer", "minimum": 1, "maximum": 12},
+                "nin_hash": {"type": ["string", "null"]},
+                "prior_year": {"type": ["integer", "null"]},
+            },
+            "required": ["current_year", "ytd_gross", "month"],
+        },
+        run=_run_suggest_mid_year_nudges,
     ),
     Tool(
         name="verify_identity",

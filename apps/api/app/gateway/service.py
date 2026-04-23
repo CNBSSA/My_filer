@@ -41,6 +41,8 @@ from app.gateway.client import (
     build_default_nrs_client,
 )
 from app.gateway.errors import translate_error
+from app.identity.vault import hash_nin  # noqa: F401  (imported for type-clarity)
+from app.memory.facts import record_filing_facts
 
 log = logging.getLogger("mai_filer.gateway.service")
 
@@ -146,6 +148,8 @@ def _persist_accepted(
     filing.nrs_qr_payload = response.qr_payload or None
     filing.nrs_submission_error = None
     filing.nrs_submitted_at = datetime.now(timezone.utc)
+    session.flush()
+    _capture_filing_facts(session=session, filing=filing, source="filing")
     session.commit()
     return SubmissionOutcome(
         filing_id=filing.id,
@@ -223,6 +227,8 @@ def _persist_simulated(
     filing.nrs_qr_payload = qr_payload
     filing.nrs_submission_error = None
     filing.nrs_submitted_at = datetime.now(timezone.utc)
+    session.flush()
+    _capture_filing_facts(session=session, filing=filing, source="simulated")
     session.commit()
     return SubmissionOutcome(
         filing_id=filing.id,
@@ -232,6 +238,34 @@ def _persist_simulated(
         qr_payload=qr_payload,
         simulated=True,
     )
+
+
+def _capture_filing_facts(
+    *, session: Session, filing: Filing, source: str
+) -> None:
+    """Write YearlyFacts from a finalized filing for the Learning Partner.
+
+    Any failure here must not roll back the submission itself — memory
+    is a nice-to-have, not a precondition for NRS acceptance.
+    """
+    try:
+        nin = ((filing.return_json or {}).get("taxpayer") or {}).get("nin")
+        nin_hash: str | None = None
+        if nin:
+            # Use the same salt the identity service uses so downstream
+            # queries keyed on identity_records.nin_hash line up.
+            from app.config import get_settings
+
+            settings = get_settings()
+            nin_hash = hash_nin(nin, salt=settings.nin_hash_salt or "dev-salt-rotate-me")
+        record_filing_facts(
+            session,
+            filing=filing,
+            user_nin_hash=nin_hash,
+            source=source,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("yearly-fact capture failed (non-fatal): %s", exc)
 
 
 def generate_sim_receipt_id() -> str:

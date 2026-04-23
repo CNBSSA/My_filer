@@ -153,6 +153,27 @@ def test_submit_transport_error_persists_error_entry(db_session) -> None:
     assert f.submission_status == "error"
 
 
+def test_simulated_submission_captures_yearly_facts(db_session) -> None:
+    """Phase 8 integration — auto-capture should land YearlyFacts when the
+    gateway simulates a submission."""
+    from app.db.models import YearlyFact
+
+    f = _green_filing(db_session)
+    outcome = submit_filing_to_nrs(session=db_session, filing=f)
+    assert outcome.status == "simulated"
+
+    facts = db_session.query(YearlyFact).filter(YearlyFact.filing_id == f.id).all()
+    types = {row.fact_type for row in facts}
+    for expected in (
+        "annual_gross_income",
+        "total_tax",
+        "nrs_submission_status",
+    ):
+        assert expected in types, f"missing fact_type {expected}"
+    # The captured `source` must match the simulated submission path.
+    assert all(row.source == "simulated" for row in facts)
+
+
 def test_submit_falls_back_to_simulation_without_creds(db_session) -> None:
     """When no client is injected and factory-built creds are empty, the
     service runs a deterministic simulation so local dev still works."""

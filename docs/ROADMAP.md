@@ -160,13 +160,18 @@ Goal: verified individual identity with NDPR-compliant consent.
 - [ ] **P7.6** — NDPC DPCA audit workflow
 - [ ] **P7.7** — NITDA code-clearance package
 
-## PHASE 8 — Learning Partner
+## PHASE 8 — Learning Partner ✅ STRUCTURED-RECALL COMPLETE
 
-- [ ] **P8.1** — pgvector install + migration
-- [ ] **P8.2** — `memory/facts.py` — structured yearly facts
-- [ ] **P8.3** — `memory/recall.py` — semantic recall over prior filings
-- [ ] **P8.4** — YoY anomaly detector (PIT variance, salary jumps)
-- [ ] **P8.5** — Mid-year nudges
+- [x] **P8.1** — `YearlyFact` ORM + alembic `0006_yearly_facts` (portable across SQLite + Postgres; pgvector column deferred until the owner picks an embeddings provider — tracked below).
+- [x] **P8.2** — `memory/facts.py` — `record_fact`, `record_filing_facts` (idempotent; routes sparse return_json through `build_canonical_pack` for authoritative numbers), `list_facts`, `fact_to_dict`.
+- [x] **P8.3** — `memory/recall.py` — `MemoryRecall` Protocol + `KeywordRecall` (SQL LIKE over label / value / source, ranked by token coverage + recency). Vector recall slots in behind the same interface when an embeddings vendor is chosen.
+- [x] **P8.4** — `memory/anomalies.py` — `detect_anomalies()` over money-valued fact types; WATCH threshold 25%, ALERT 50%; structured `AnomalyFinding` list.
+- [x] **P8.5** — `memory/nudges.py` — `suggest_nudges()` annualizes YTD, compares to prior year, flags YOY_PACE (watch), PIT_BAND_CROSS (alert), VAT_THRESHOLD_APPROACH (watch), VAT_THRESHOLD_CROSSED (alert).
+- [x] **P8.6** — Gateway auto-capture: `gateway/service.py` writes YearlyFacts on every `accepted` / `simulated` submission, keyed by HMAC-hashed NIN.
+- [x] **P8.7** — `api/memory.py` — `GET /v1/memory/{facts,recall,anomalies,nudges}`.
+- [x] **P8.8** — Full-suite tests (33 new): facts repo, keyword recall, anomaly thresholds, nudges pace/band/VAT, endpoint integration, auto-capture on submission.
+- [x] **P8.9** — Mai Filer tools: `list_user_facts`, `recall_memory`, `detect_yoy_anomalies`, `suggest_mid_year_nudges`. Registry is now **21 tools**.
+- [ ] **P8.10** — pgvector column + `VectorRecall` behind the same `MemoryRecall` interface (deferred until the owner chooses an embeddings vendor — e.g. Voyage AI, which Anthropic recommends).
 
 ## PHASE 9 — SME (CIT / VAT / MBS) — **v2**
 
