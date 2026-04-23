@@ -19,6 +19,7 @@ from app.api.filings import router as filings_router
 from app.api.identity import router as identity_router
 from app.api.memory import router as memory_router
 from app.api.ngo_filings import router as ngo_router
+from app.api.sme import router as sme_router
 from app.config import get_settings
 from app.observability import (
     CorrelationIdMiddleware,
@@ -61,6 +62,7 @@ app.include_router(filings_router)
 app.include_router(identity_router)
 app.include_router(memory_router)
 app.include_router(ngo_router)
+app.include_router(sme_router)
 app.include_router(metrics_router)
 
 

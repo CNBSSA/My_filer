@@ -209,7 +209,7 @@ run until these drop in:
 - [ ] **P9.6** — CAC verification flow (reuses Phase 5 aggregator adapters — same `IdentityAggregator` Protocol).
 - [ ] **P9.7** — SME filing pack (UBL 3.0 JSON + branded PDF variant reusing Phase 4 renderer).
 - [x] **P9.8** — Mai Filer tools: `calc_cit`, `calc_wht`, `list_wht_classes`, `validate_ubl_envelope`. Registry is now 17 tools. `compose_einvoice` and `submit_mbs` land with P9.5 / P9.4.
-- [ ] **P9.9** — Landing + chat UI: "I'm filing for a business" entry path.
+- [x] **P9.9** — Web: `/sme` preview page with interactive CIT + WHT calculators and a UBL 3.0 envelope validator, all wired to thin HTTP wrappers (`/v1/sme/calc-cit`, `/v1/sme/calc-wht`, `/v1/sme/wht-classes`, `/v1/sme/validate-ubl`) over the Phase 9 scaffolding. Prominent placeholder banner reminds the user that the statutory tables are illustrative until confirmed. Landing page CTA added. Corporate `Filing` endpoint remains deferred until 2026 rates land.
 
 ## PHASE 11 — NGO / Tax-Exempt Bodies ✅ BACKEND SCAFFOLD COMPLETE
 
@@ -238,7 +238,7 @@ the NRS-confirmed NGO specification.
 - [x] **P11.3** — `filing/ngo_service.py` + `api/ngo_filings.py`: `POST/PUT/GET /v1/ngo-filings`, `/{id}/audit`, `/{id}/pack`, `/{id}/pack.pdf|json`. Filing.tax_kind discriminator (`pit | ngo_annual`) + alembic `0007_filing_tax_kind`. NGO PDF reuses the Phase 4 renderer via an adapter; dedicated renderer lands once NRS publishes the NGO form.
 - [x] **P11.4** — `filing/ngo_audit.py` — 11 NGO-specific checks: CAC Part-C pattern, legal name, future tax year, purpose recognition, negative totals, per-row WHT sanity, schedule total consistency, exemption + declaration affirmations, empty-return guard, programme-evidence expectation.
 - [x] **P11.6** — Mai Filer tools: `list_ngo_exempt_purposes`, `audit_ngo_filing`, `audit_ngo_return`. Registry now 24 tools. Every NGO tool response echoes `statutory_is_placeholder: true`.
-- [ ] **P11.5** — Web: `/ngo` intake page + multilingual consent + review/download flow (next slice).
+- [x] **P11.5** — Web: `/ngo` single-form intake (sectioned layout: organisation, income, expenditure, WHT schedule with add/remove rows, declarations, placeholder banner) + `/ngo-filings/[id]` review page (Audit Shield summary, run audit / prepare pack, PDF + JSON download) mirroring `/filings/[id]`. Both routes in the a11y gate; 0 violations.
 
 ## PHASE 10 — Polish ✅ FIRST PASS COMPLETE
 

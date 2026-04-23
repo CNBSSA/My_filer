@@ -13,7 +13,7 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const ROUTES = ["/", "/chat", "/identity", "/dashboard"] as const;
+const ROUTES = ["/", "/chat", "/identity", "/dashboard", "/ngo", "/sme"] as const;
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 

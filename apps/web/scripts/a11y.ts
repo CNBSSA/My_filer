@@ -16,7 +16,9 @@
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
+import { cpSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import type { AxeResults, Result } from "axe-core";
@@ -31,6 +33,8 @@ const ROUTES: readonly string[] = [
   "/chat",
   "/identity",
   "/dashboard",
+  "/ngo",
+  "/sme",
 ];
 
 const SEVERITY_RANK: Record<Impact, number> = {
@@ -78,9 +82,30 @@ async function ensureServer(): Promise<{
     return { url, child: null };
   }
 
-  console.log(`→ starting next server on ${url}`);
-  const child = spawn("npx", ["--no-install", "next", "start", "-p", port, "-H", "127.0.0.1"], {
-    env: { ...process.env, NODE_ENV: "production" },
+  // `output: standalone` emits .next/standalone/server.js, which is the
+  // same entrypoint our production Docker image runs. The standalone
+  // output does NOT include public/ or .next/static/ — the Dockerfile
+  // copies them in, and we mirror that here so the harness tests the
+  // real production execution path instead of `next start`.
+  const standaloneRoot = resolve(".next/standalone");
+  if (existsSync("public")) {
+    cpSync("public", resolve(standaloneRoot, "public"), { recursive: true });
+  }
+  if (existsSync(".next/static")) {
+    cpSync(".next/static", resolve(standaloneRoot, ".next/static"), {
+      recursive: true,
+    });
+  }
+
+  console.log(`→ starting standalone server on ${url}`);
+  const child = spawn("node", ["server.js"], {
+    cwd: standaloneRoot,
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      PORT: port,
+      HOSTNAME: "127.0.0.1",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (chunk) => {

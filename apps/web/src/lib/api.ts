@@ -262,6 +262,182 @@ export async function getNudges(params: {
   return _json(await fetch(`${API_BASE}/v1/memory/nudges?${qs.toString()}`));
 }
 
+// ---------------------------------------------------------------------------
+// NGO filings (Phase 11)
+// ---------------------------------------------------------------------------
+
+export type NgoPurpose =
+  | "charitable"
+  | "educational"
+  | "religious"
+  | "scientific"
+  | "cultural"
+  | "social_welfare"
+  | "other";
+
+export type NgoWhtRecipient =
+  | "individual"
+  | "corporate"
+  | "partnership"
+  | "foreign_entity"
+  | "other";
+
+export interface NgoReturn {
+  tax_year: number;
+  period_start: string;
+  period_end: string;
+  organization: {
+    cac_part_c_rc: string;
+    legal_name: string;
+    trade_name?: string | null;
+    exemption_reference?: string | null;
+    purpose: NgoPurpose;
+    registered_address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  };
+  income: {
+    local_donations?: string | number;
+    foreign_donations?: string | number;
+    government_grants?: string | number;
+    foundation_grants?: string | number;
+    program_income?: string | number;
+    investment_income?: string | number;
+    other_income?: string | number;
+  };
+  expenditure: {
+    program_expenses?: string | number;
+    administrative?: string | number;
+    fundraising?: string | number;
+    other?: string | number;
+  };
+  wht_schedule: Array<{
+    period_month: number;
+    transaction_class: string;
+    recipient_category: NgoWhtRecipient;
+    gross_amount: string | number;
+    wht_amount: string | number;
+    recipient_reference?: string | null;
+    remittance_receipt?: string | null;
+  }>;
+  supporting_document_ids?: string[];
+  exemption_status_declaration: boolean;
+  declaration: boolean;
+  notes?: string | null;
+}
+
+export interface NgoFilingRecord {
+  id: string;
+  tax_year: number;
+  tax_kind: string;
+  return: Record<string, unknown>;
+  audit_status: AuditStatus;
+  audit: AuditReport | null;
+  pack_ready: boolean;
+  finalized_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createNgoFiling(
+  body: NgoReturn,
+): Promise<NgoFilingRecord> {
+  const r = await fetch(`${API_BASE}/v1/ngo-filings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return _json(r);
+}
+
+export async function getNgoFiling(id: string): Promise<NgoFilingRecord> {
+  return _json(await fetch(`${API_BASE}/v1/ngo-filings/${id}`));
+}
+
+export async function auditNgoFiling(
+  id: string,
+): Promise<{ filing: NgoFilingRecord; audit: AuditReport }> {
+  return _json(
+    await fetch(`${API_BASE}/v1/ngo-filings/${id}/audit`, { method: "POST" }),
+  );
+}
+
+export async function buildNgoPack(
+  id: string,
+): Promise<{ filing: NgoFilingRecord; pack: Record<string, unknown> }> {
+  return _json(
+    await fetch(`${API_BASE}/v1/ngo-filings/${id}/pack`, { method: "POST" }),
+  );
+}
+
+export function ngoPackDownloadUrl(id: string, format: "pdf" | "json"): string {
+  return `${API_BASE}/v1/ngo-filings/${id}/pack.${format}`;
+}
+
+// ---------------------------------------------------------------------------
+// SME calculators (Phase 9 preview — placeholder statutory data)
+// ---------------------------------------------------------------------------
+
+export interface CITResult {
+  annual_turnover: string;
+  assessable_profit: string;
+  tier: string;
+  cit_rate: string;
+  cit_amount: string;
+  tertiary_rate: string;
+  tertiary_amount: string;
+  total_payable: string;
+  notes: string[];
+  statutory_source: string;
+  statutory_is_placeholder: boolean;
+}
+
+export interface WHTResult {
+  transaction_class: string;
+  gross_amount: string;
+  wht_rate: string;
+  wht_amount: string;
+  net_payable: string;
+  statutory_source: string;
+  statutory_is_placeholder: boolean;
+  error?: string;
+  known_classes?: string[];
+}
+
+export async function calcCit(input: {
+  annual_turnover: number | string;
+  assessable_profit: number | string;
+  include_tertiary?: boolean;
+}): Promise<CITResult> {
+  return _json(
+    await fetch(`${API_BASE}/v1/sme/calc-cit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function calcWht(input: {
+  gross_amount: number | string;
+  transaction_class: string;
+}): Promise<WHTResult> {
+  return _json(
+    await fetch(`${API_BASE}/v1/sme/calc-wht`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function listWhtClasses(): Promise<{
+  classes: string[];
+  statutory_is_placeholder: boolean;
+}> {
+  return _json(await fetch(`${API_BASE}/v1/sme/wht-classes`));
+}
+
 export type ChatStreamEvent = "start" | "delta" | "done";
 
 export interface ChatStreamChunk {
