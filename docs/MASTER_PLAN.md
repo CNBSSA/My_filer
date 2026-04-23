@@ -37,7 +37,8 @@ submits live to the NRS via Rev360.
 | 7 | Rev360 Live + Licensing | Real submissions, real license |
 | 8 | Learning Partner | YoY memory + anomaly detection |
 | 9 | Receipt & E-Invoice Co-Pilot | SME MBS co-pilot |
-| 10 | Polish & Localization | Dashboards + Hausa/Yoruba/Igbo |
+| 10 | Polish & Localization | Dashboards + Hausa/Yoruba/Igbo/Pidgin + a11y |
+| 11 | NGO / Tax-Exempt | Annual return + WHT remittance schedule for exempt bodies |
 
 ## Change Control
 
@@ -64,9 +65,10 @@ A phase is done only when all of:
 | ADR | Decision |
 |---|---|
 | ADR-0001 | Master plan is **approved and locked** |
-| ADR-0002 | v1 focuses on **Individual (PAYE / PIT)**; SME is v2 |
-| ADR-0003 | Default identity aggregator is **Dojah** |
-| ADR-0004 | v1 ships **multilingual**: English, Hausa, Yoruba, Igbo, Pidgin |
+| ADR-0002 | v1 focuses on **Individual (PAYE / PIT)**; SME is v2 (Phase 9); NGO is Phase 11 |
+| ADR-0003 | Default identity aggregator is **Dojah**; Seamfix + Prembly ship as adapters |
+| ADR-0004 | v1 ships **multilingual**: English, Hausa, Yoruba, Igbo, Pidgin (NRS payloads stay English) |
+| ADR-0005 | **Quarantined placeholder pattern** for pending regulatory data: `app/tax/statutory/` carries `*_SOURCE="PLACEHOLDER:..."` markers; `assert_confirmed()` guard refuses production use until owner replaces the data |
 
 See `docs/DECISIONS.md` for the full rationale and consequences.
 
