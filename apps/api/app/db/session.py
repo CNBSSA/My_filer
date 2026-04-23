@@ -19,9 +19,11 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
+from app.db.url import normalize_database_url
 
 
 def _make_engine(database_url: str) -> Engine:
+    database_url = normalize_database_url(database_url)
     connect_args: dict = {}
     if database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False

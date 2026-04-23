@@ -17,6 +17,7 @@ sys.path.insert(0, str(API_ROOT))
 
 from app.config import get_settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.db.url import normalize_database_url  # noqa: E402
 from app.db import models  # noqa: E402, F401  # registers models with Base.metadata
 
 config = context.config
@@ -24,9 +25,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Override sqlalchemy.url from the environment via Settings.
+# Override sqlalchemy.url from the environment via Settings. Normalize so
+# Railway/Heroku-style `postgres://` URLs route to psycopg v3.
 _settings = get_settings()
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", _settings.database_url))
+_raw_url = os.getenv("DATABASE_URL", _settings.database_url)
+config.set_main_option("sqlalchemy.url", normalize_database_url(_raw_url))
 
 target_metadata = Base.metadata
 
