@@ -257,7 +257,13 @@ def _capture_filing_facts(
             from app.config import get_settings
 
             settings = get_settings()
-            nin_hash = hash_nin(nin, salt=settings.nin_hash_salt or "dev-salt-rotate-me")
+            if not settings.nin_hash_salt:
+                log.warning(
+                    "nin_hash_salt is not set — skipping NIN hash for fact capture"
+                )
+                nin_hash = None
+            else:
+                nin_hash = hash_nin(nin, salt=settings.nin_hash_salt)
         record_filing_facts(
             session,
             filing=filing,
