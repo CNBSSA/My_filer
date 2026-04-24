@@ -25,6 +25,26 @@ log = logging.getLogger("mai_filer.documents")
 # Kinds that Mai auto-extracts on upload. Other kinds (e.g., cac_certificate)
 # are stored but not yet extracted; `read_document_extraction` returns null
 # until a later phase wires up a schema.
+
+# Magic byte signatures for content types we accept.
+_MAGIC_BYTES: list[tuple[bytes, str]] = [
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"RIFF", "image/webp"),          # WebP starts RIFF...WEBP
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    (b"%PDF-", "application/pdf"),
+]
+
+
+def _detect_content_type(data: bytes) -> str | None:
+    """Return detected MIME type from magic bytes, or None if unrecognised."""
+    for magic, mime in _MAGIC_BYTES:
+        if data[:len(magic)] == magic:
+            return mime
+    return None
+
+
 EXTRACTABLE_KINDS: frozenset[DocumentKind] = frozenset({"payslip", "bank_statement", "receipt"})
 
 
@@ -68,6 +88,12 @@ def upload_and_extract(
     Returns the committed `Document` row; the caller is responsible for
     refreshing / serializing it.
     """
+    # Re-validate content type against file magic bytes to prevent spoofing.
+    detected = _detect_content_type(file_bytes)
+    if detected and detected not in ALLOWED_CONTENT_TYPES:
+        raise UnsupportedContentTypeError(
+            f"file magic bytes indicate {detected!r}, which is not allowed."
+        )
     if content_type not in ALLOWED_CONTENT_TYPES:
         raise UnsupportedContentTypeError(
             f"unsupported content type: {content_type}. "
