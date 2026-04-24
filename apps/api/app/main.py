@@ -5,14 +5,15 @@ Mounts every phase router plus the observability surface:
   * CORS middleware (env-driven allow-list).
   * CorrelationIdMiddleware — reads / mints `X-Request-Id`, binds it to
     logs via a contextvars context.
-  * /health — liveness probe.
-  * /metrics — Prometheus text-exposition format.
+  * /health — liveness probe (public).
+  * /metrics — Prometheus text-exposition format (protected by API_TOKEN).
 """
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.api.auth import require_api_token
 from app.api.chat import router as chat_router
 from app.api.corporate_filings import router as corporate_filings_router
 from app.api.documents import router as documents_router
@@ -57,20 +58,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat_router)
-app.include_router(corporate_filings_router)
-app.include_router(documents_router)
-app.include_router(filings_router)
-app.include_router(identity_router)
-app.include_router(memory_router)
-app.include_router(ngo_router)
-app.include_router(sme_router)
-app.include_router(metrics_router)
+# Auth-protected routers.  documents_router and memory_router carry their own
+# router-level dependency; the remaining routers get auth applied here so
+# every PII-touching route is guarded without touching each file.
+_auth = [Depends(require_api_token)]
+
+app.include_router(chat_router, dependencies=_auth)
+app.include_router(corporate_filings_router, dependencies=_auth)
+app.include_router(documents_router)        # own router-level dependency
+app.include_router(filings_router, dependencies=_auth)
+app.include_router(identity_router, dependencies=_auth)
+app.include_router(memory_router)           # own router-level dependency
+app.include_router(ngo_router, dependencies=_auth)
+app.include_router(sme_router, dependencies=_auth)
+app.include_router(metrics_router, dependencies=_auth)   # protect /metrics
 
 
 @app.get("/health", tags=["ops"])
 async def health() -> dict[str, str]:
-    """Liveness probe. Never depends on downstream services."""
+    """Liveness probe. Never depends on downstream services. Public endpoint."""
     return {
         "status": "ok",
         "service": settings.app_name,
