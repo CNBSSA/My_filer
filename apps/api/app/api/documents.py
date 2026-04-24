@@ -1,12 +1,18 @@
-"""Documents router — upload, retrieve, list (P3.1c)."""
+"""Documents router — upload, retrieve, list (P3.1c).
+
+All endpoints require a valid Bearer token (API_TOKEN env var).
+"""
 
 from __future__ import annotations
 
+import pathlib
+import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.auth import require_api_token
 from app.db.models import Document
 from app.db.session import get_session
 from app.documents.extractor import VisionExtractor, get_default_vision_extractor
@@ -18,7 +24,31 @@ from app.documents.service import (
 )
 from app.documents.storage import StorageAdapter, get_default_storage
 
-router = APIRouter(prefix="/v1/documents", tags=["documents"])
+router = APIRouter(
+    prefix="/v1/documents",
+    tags=["documents"],
+    dependencies=[Depends(require_api_token)],
+)
+
+# Safe filename: keep alphanumerics, dots, dashes, underscores only.
+_SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]")
+_MAX_FILENAME_LEN = 200
+
+
+def _sanitize_filename(raw: str | None) -> str:
+    """Strip path separators and non-safe characters from a user-supplied filename.
+
+    Returns "upload" when the result would be empty.
+    """
+    if not raw:
+        return "upload"
+    # Drop any path components — take the last segment only.
+    name = pathlib.PurePosixPath(raw).name or pathlib.PureWindowsPath(raw).name or raw
+    # Replace unsafe characters with underscores.
+    name = _SAFE_FILENAME_RE.sub("_", name)
+    # Trim to a safe length.
+    name = name[:_MAX_FILENAME_LEN]
+    return name or "upload"
 
 
 def get_storage() -> StorageAdapter:
@@ -62,7 +92,7 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST, detail="empty upload"
         )
     content_type = file.content_type or "application/octet-stream"
-    filename = file.filename or "upload"
+    filename = _sanitize_filename(file.filename)
 
     try:
         document = upload_and_extract(
@@ -101,13 +131,13 @@ async def get_document(
 @router.get("", response_model=list[DocumentRecord])
 async def list_documents(
     session: Session = Depends(get_session),
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=100),
 ) -> list[DocumentRecord]:
-    """Recent documents, newest first. No auth yet — the caller sees everything."""
+    """Recent documents, newest first. Requires authentication."""
     rows = (
         session.query(Document)
         .order_by(Document.created_at.desc())
-        .limit(max(1, min(limit, 100)))
+        .limit(limit)
         .all()
     )
     return [_to_record(doc) for doc in rows]
