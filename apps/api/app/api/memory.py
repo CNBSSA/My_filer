@@ -1,4 +1,7 @@
-"""Memory endpoints — surface Learning Partner data over HTTP."""
+"""Memory endpoints — surface Learning Partner data over HTTP.
+
+All endpoints require a valid Bearer token (API_TOKEN env var).
+"""
 
 from __future__ import annotations
 
@@ -8,13 +11,18 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.api.auth import require_api_token
 from app.db.session import get_session
 from app.memory.anomalies import detect_anomalies
 from app.memory.facts import fact_to_dict, list_facts
 from app.memory.nudges import suggest_nudges
 from app.memory.recall_factory import build_recall
 
-router = APIRouter(prefix="/v1/memory", tags=["memory"])
+router = APIRouter(
+    prefix="/v1/memory",
+    tags=["memory"],
+    dependencies=[Depends(require_api_token)],
+)
 
 
 @router.get("/facts")
@@ -22,7 +30,7 @@ async def get_facts(
     nin_hash: str | None = None,
     tax_year: int | None = None,
     fact_type: str | None = None,
-    limit: int = 200,
+    limit: int = Query(default=200, ge=1, le=500),
     session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     rows = list_facts(
@@ -39,7 +47,7 @@ async def get_facts(
 async def recall(
     q: str = Query(min_length=1, max_length=200),
     nin_hash: str | None = None,
-    limit: int = 10,
+    limit: int = Query(default=10, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     recaller = build_recall(session)
