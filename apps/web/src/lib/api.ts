@@ -1,6 +1,11 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
+function apiHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = process.env.NEXT_PUBLIC_API_TOKEN;
+  return token ? { Authorization: `Bearer ${token}`, ...extra } : extra;
+}
+
 export type DocumentKind =
   | "payslip"
   | "receipt"
@@ -37,6 +42,7 @@ export async function uploadDocument({
 
   const response = await fetch(`${API_BASE}/v1/documents`, {
     method: "POST",
+    headers: apiHeaders(),
     body: form,
     signal,
   });
@@ -95,14 +101,14 @@ async function _json<T>(resp: Response): Promise<T> {
 }
 
 export async function getFiling(id: string): Promise<FilingRecord> {
-  return _json(await fetch(`${API_BASE}/v1/filings/${id}`));
+  return _json(await fetch(`${API_BASE}/v1/filings/${id}`, { headers: apiHeaders() }));
 }
 
 export async function runAudit(
   id: string,
 ): Promise<{ filing: FilingRecord; audit: AuditReport }> {
   return _json(
-    await fetch(`${API_BASE}/v1/filings/${id}/audit`, { method: "POST" }),
+    await fetch(`${API_BASE}/v1/filings/${id}/audit`, { method: "POST", headers: apiHeaders() }),
   );
 }
 
@@ -110,7 +116,7 @@ export async function buildFilingPack(
   id: string,
 ): Promise<{ filing: FilingRecord; pack: Record<string, unknown> }> {
   return _json(
-    await fetch(`${API_BASE}/v1/filings/${id}/pack`, { method: "POST" }),
+    await fetch(`${API_BASE}/v1/filings/${id}/pack`, { method: "POST", headers: apiHeaders() }),
   );
 }
 
@@ -159,7 +165,7 @@ export async function verifyIdentity(input: {
 }): Promise<IdentityVerificationResult> {
   const response = await fetch(`${API_BASE}/v1/identity/verify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(input),
   });
 
@@ -220,7 +226,7 @@ export async function getFacts(params: {
   if (params.tax_year !== undefined) qs.set("tax_year", String(params.tax_year));
   if (params.fact_type) qs.set("fact_type", params.fact_type);
   if (params.limit) qs.set("limit", String(params.limit));
-  return _json(await fetch(`${API_BASE}/v1/memory/facts?${qs.toString()}`));
+  return _json(await fetch(`${API_BASE}/v1/memory/facts?${qs.toString()}`, { headers: apiHeaders() }));
 }
 
 export async function recallMemory(params: {
@@ -231,7 +237,7 @@ export async function recallMemory(params: {
   const qs = new URLSearchParams({ q: params.q });
   if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
   if (params.limit) qs.set("limit", String(params.limit));
-  return _json(await fetch(`${API_BASE}/v1/memory/recall?${qs.toString()}`));
+  return _json(await fetch(`${API_BASE}/v1/memory/recall?${qs.toString()}`, { headers: apiHeaders() }));
 }
 
 export async function getAnomalies(params: {
@@ -242,7 +248,7 @@ export async function getAnomalies(params: {
   const qs = new URLSearchParams({ current_year: String(params.current_year) });
   if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
   if (params.prior_year !== undefined) qs.set("prior_year", String(params.prior_year));
-  return _json(await fetch(`${API_BASE}/v1/memory/anomalies?${qs.toString()}`));
+  return _json(await fetch(`${API_BASE}/v1/memory/anomalies?${qs.toString()}`, { headers: apiHeaders() }));
 }
 
 export async function getNudges(params: {
@@ -259,7 +265,7 @@ export async function getNudges(params: {
   });
   if (params.nin_hash) qs.set("nin_hash", params.nin_hash);
   if (params.prior_year !== undefined) qs.set("prior_year", String(params.prior_year));
-  return _json(await fetch(`${API_BASE}/v1/memory/nudges?${qs.toString()}`));
+  return _json(await fetch(`${API_BASE}/v1/memory/nudges?${qs.toString()}`, { headers: apiHeaders() }));
 }
 
 // ---------------------------------------------------------------------------
@@ -344,21 +350,21 @@ export async function createNgoFiling(
 ): Promise<NgoFilingRecord> {
   const r = await fetch(`${API_BASE}/v1/ngo-filings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   return _json(r);
 }
 
 export async function getNgoFiling(id: string): Promise<NgoFilingRecord> {
-  return _json(await fetch(`${API_BASE}/v1/ngo-filings/${id}`));
+  return _json(await fetch(`${API_BASE}/v1/ngo-filings/${id}`, { headers: apiHeaders() }));
 }
 
 export async function auditNgoFiling(
   id: string,
 ): Promise<{ filing: NgoFilingRecord; audit: AuditReport }> {
   return _json(
-    await fetch(`${API_BASE}/v1/ngo-filings/${id}/audit`, { method: "POST" }),
+    await fetch(`${API_BASE}/v1/ngo-filings/${id}/audit`, { method: "POST", headers: apiHeaders() }),
   );
 }
 
@@ -366,7 +372,7 @@ export async function buildNgoPack(
   id: string,
 ): Promise<{ filing: NgoFilingRecord; pack: Record<string, unknown> }> {
   return _json(
-    await fetch(`${API_BASE}/v1/ngo-filings/${id}/pack`, { method: "POST" }),
+    await fetch(`${API_BASE}/v1/ngo-filings/${id}/pack`, { method: "POST", headers: apiHeaders() }),
   );
 }
 
@@ -440,7 +446,7 @@ export async function createCorporateFiling(
 ): Promise<CorporateFilingRecord> {
   const r = await fetch(`${API_BASE}/v1/corporate-filings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   return _json(r);
@@ -449,7 +455,7 @@ export async function createCorporateFiling(
 export async function getCorporateFiling(
   id: string,
 ): Promise<CorporateFilingRecord> {
-  return _json(await fetch(`${API_BASE}/v1/corporate-filings/${id}`));
+  return _json(await fetch(`${API_BASE}/v1/corporate-filings/${id}`, { headers: apiHeaders() }));
 }
 
 export async function auditCorporateFiling(
@@ -458,6 +464,7 @@ export async function auditCorporateFiling(
   return _json(
     await fetch(`${API_BASE}/v1/corporate-filings/${id}/audit`, {
       method: "POST",
+      headers: apiHeaders(),
     }),
   );
 }
@@ -468,6 +475,7 @@ export async function buildCorporatePack(
   return _json(
     await fetch(`${API_BASE}/v1/corporate-filings/${id}/pack`, {
       method: "POST",
+      headers: apiHeaders(),
     }),
   );
 }
@@ -517,7 +525,7 @@ export async function calcCit(input: {
   return _json(
     await fetch(`${API_BASE}/v1/sme/calc-cit`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(input),
     }),
   );
@@ -530,7 +538,7 @@ export async function calcWht(input: {
   return _json(
     await fetch(`${API_BASE}/v1/sme/calc-wht`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(input),
     }),
   );
@@ -540,7 +548,7 @@ export async function listWhtClasses(): Promise<{
   classes: string[];
   statutory_is_placeholder: boolean;
 }> {
-  return _json(await fetch(`${API_BASE}/v1/sme/wht-classes`));
+  return _json(await fetch(`${API_BASE}/v1/sme/wht-classes`, { headers: apiHeaders() }));
 }
 
 export type ChatStreamEvent = "start" | "delta" | "done";
@@ -575,7 +583,7 @@ export async function* streamChat({
 }): AsyncGenerator<ChatStreamChunk, void, unknown> {
   const response = await fetch(`${API_BASE}/v1/chat/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       message,
       language,
