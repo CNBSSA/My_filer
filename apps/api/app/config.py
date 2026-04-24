@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -60,10 +60,17 @@ class Settings(BaseSettings):
     nin_vault_key: str = ""
     nin_hash_salt: str = ""
 
+    # JWT secret for user-facing tokens.  MUST be set in production — the
+    # validator rejects the default in production/staging so a misconfigured
+    # deployment fails loudly at startup.
     jwt_secret: str = Field(default="dev-only-change-me")
     jwt_issuer: str = "mai-filer"
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
+
+    # Bearer token that protects all PII-bearing API endpoints.
+    # Set API_TOKEN to a long random string in production (min 32 chars).
+    api_token: str = ""
 
     # Comma-separated list of origins the web app is served from.
     # Example: "https://mai-filer-web.up.railway.app,http://localhost:3000"
@@ -78,6 +85,19 @@ class Settings(BaseSettings):
     # Observability. The correlation-ID header is read from inbound
     # requests; if absent, the middleware generates a UUID.
     correlation_id_header: str = "X-Request-Id"
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _require_strong_jwt_secret(cls, v: str, info: object) -> str:
+        """Reject the default placeholder secret in production / staging."""
+        data = getattr(info, "data", {}) or {}
+        env = data.get("app_env", "development")
+        if env in ("production", "staging") and v == "dev-only-change-me":
+            raise ValueError(
+                "JWT_SECRET must be changed from the default value in "
+                f"app_env={env!r}. Set a strong random value."
+            )
+        return v
 
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
