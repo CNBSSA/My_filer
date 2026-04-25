@@ -9,8 +9,15 @@ Mounts every phase router plus the observability surface:
   * /metrics — Prometheus text-exposition format (protected by API_TOKEN).
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+from app.api.limits import limiter
 
 from app import __version__
 from app.api.auth import require_api_token
@@ -34,8 +41,17 @@ settings = get_settings()
 # Configure structured logging before anything else prints.
 configure_json_logging(level=settings.log_level)
 
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):  # noqa: ARG001
+    """Fail fast on misconfigured environments before serving any traffic."""
+    settings.validate_for_env()
+    yield
+
+
 app = FastAPI(
     title="Mai Filer API",
+    lifespan=_lifespan,
     description=(
         "AI-native Nigerian tax e-filing platform. "
         "Mai Filer orchestrates tax calculation, document intelligence, "
@@ -44,9 +60,14 @@ app = FastAPI(
     version=__version__,
 )
 
+# Rate limiting — must be registered before middleware is added.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Middleware order: outermost is CORS (pre-flight short-circuit), then
-# correlation ID so every request — including the pre-flighted one — has
-# an ID bound when any downstream log fires.
+# SlowAPI for rate limiting, then correlation ID so every request has an
+# ID bound when any downstream log fires.
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CorrelationIdMiddleware, header=settings.correlation_id_header
 )
@@ -54,8 +75,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "Accept"],
 )
 
 # Auth-protected routers.  documents_router and memory_router carry their own
