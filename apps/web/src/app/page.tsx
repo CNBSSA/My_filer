@@ -5,7 +5,7 @@ import { getMessages } from "@/lib/messages";
 export default function Home() {
   const t = getMessages("en");
   return (
-    <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col items-start justify-center gap-6 px-4 py-12 sm:gap-8 sm:px-6 sm:py-24">
+    <main className="relative mx-auto flex min-h-screen max-w-4xl flex-col items-start justify-center gap-8 px-4 py-12 sm:px-6 sm:py-20">
       {/* Subtle green glow behind the hero */}
       <div
         aria-hidden
@@ -32,38 +32,89 @@ export default function Home() {
         <p className="max-w-2xl leading-7 text-zinc-600">{t.aboutBody}</p>
       </div>
 
-      <div className="mt-2 flex w-full flex-col gap-3 sm:mt-4 sm:w-auto sm:flex-row sm:flex-wrap">
-        {/* Primary CTA */}
-        <Link
-          href="/chat"
-          className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-7 py-3 font-semibold text-white shadow-md transition-all hover:bg-emerald-700 hover:shadow-lg active:scale-95"
-        >
-          {t.startChat} →
-        </Link>
+      {/* Taxpayer type cards */}
+      <div className="w-full">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+          Who are you filing for?
+        </h2>
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
 
-        <Link
-          href="/identity"
-          className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-zinc-700 transition-colors hover:bg-zinc-50 hover:border-zinc-400"
-        >
-          {t.identity.title} →
-        </Link>
+          {/* Individual */}
+          <Link
+            href="/chat"
+            className="group flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-2xl">
+              👤
+            </div>
+            <div>
+              <p className="font-semibold text-zinc-900 group-hover:text-emerald-700">Individual</p>
+              <p className="mt-1 text-sm text-zinc-500">PIT / PAYE return</p>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Salaried employees, self-employed persons, and sole traders. File your annual Personal Income Tax return.
+            </p>
+            <span className="mt-auto inline-flex items-center text-xs font-semibold text-emerald-600 group-hover:underline">
+              Start filing →
+            </span>
+          </Link>
+
+          {/* Corporate */}
+          <Link
+            href="/corporate"
+            className="group flex flex-col gap-3 rounded-2xl border border-blue-100 bg-white p-6 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+              🏢
+            </div>
+            <div>
+              <p className="font-semibold text-zinc-900 group-hover:text-blue-700">Company</p>
+              <p className="mt-1 text-sm text-zinc-500">CIT return · CAC Part-A</p>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Limited liability companies (Ltd / Plc) registered with CAC. File your annual Company Income Tax return.
+            </p>
+            <span className="mt-auto inline-flex items-center text-xs font-semibold text-blue-600 group-hover:underline">
+              Start filing →
+            </span>
+          </Link>
+
+          {/* NGO */}
+          <Link
+            href="/ngo"
+            className="group flex flex-col gap-3 rounded-2xl border border-violet-100 bg-white p-6 shadow-sm transition-all hover:border-violet-300 hover:shadow-md"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50 text-2xl">
+              🏛️
+            </div>
+            <div>
+              <p className="font-semibold text-zinc-900 group-hover:text-violet-700">NGO / Charity</p>
+              <p className="mt-1 text-sm text-zinc-500">Exempt return · CAC Part-C</p>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Non-profit organisations, foundations, and charities registered under CAC Part-C. Annual exempt-status return.
+            </p>
+            <span className="mt-auto inline-flex items-center text-xs font-semibold text-violet-600 group-hover:underline">
+              Start filing →
+            </span>
+          </Link>
+
+        </div>
+      </div>
+
+      {/* Secondary links */}
+      <div className="flex w-full flex-wrap gap-3">
         <Link
           href="/dashboard"
-          className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-zinc-700 transition-colors hover:bg-zinc-50 hover:border-zinc-400"
+          className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-2.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 hover:border-zinc-400"
         >
           {t.dashboard.title} →
         </Link>
         <Link
-          href="/ngo"
-          className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-zinc-700 transition-colors hover:bg-zinc-50 hover:border-zinc-400"
+          href="/identity"
+          className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-2.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 hover:border-zinc-400"
         >
-          {t.ngo.title} →
-        </Link>
-        <Link
-          href="/sme"
-          className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-3 text-zinc-700 transition-colors hover:bg-zinc-50 hover:border-zinc-400"
-        >
-          {t.sme.title} →
+          {t.identity.title} →
         </Link>
       </div>
 
