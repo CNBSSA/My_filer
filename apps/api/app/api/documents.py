@@ -9,10 +9,11 @@ import pathlib
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.auth import require_api_token
+from app.api.limits import limiter
 from app.db.models import Document
 from app.db.session import get_session
 from app.documents.extractor import VisionExtractor, get_default_vision_extractor
@@ -73,7 +74,9 @@ def _to_record(doc: Document) -> DocumentRecord:
 
 
 @router.post("", response_model=DocumentRecord, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def upload_document(
+    request: Request,
     file: Annotated[UploadFile, File()],
     kind: Annotated[DocumentKind, Form()] = "payslip",
     thread_id: Annotated[str | None, Form()] = None,
