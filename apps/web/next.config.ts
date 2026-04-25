@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
-  basePath: "/My_filer",
-  trailingSlash: true,
+  output: "standalone",
   reactStrictMode: true,
   images: {
     unoptimized: true,
