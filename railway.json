@@ -6,7 +6,7 @@
   },
   "deploy": {
     "preDeployCommand": "alembic upgrade head",
-    "startCommand": "exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers",
+    "startCommand": "/bin/sh -c \"exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers\"",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
