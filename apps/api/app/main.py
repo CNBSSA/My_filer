@@ -77,3 +77,14 @@ async def health() -> dict[str, str]:
         "env": settings.app_env,
         "version": __version__,
     }
+
+
+@app.get("/", tags=["ops"])
+async def root() -> dict[str, str]:
+    """Root path — returns the same health check response as /health."""
+    return {
+        "status": "ok",
+        "service": settings.app_name,
+        "env": settings.app_env,
+        "version": __version__,
+    }
