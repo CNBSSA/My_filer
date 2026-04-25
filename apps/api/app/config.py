@@ -99,8 +99,101 @@ class Settings(BaseSettings):
             )
         return v
 
+    @field_validator("storage_access_key", "storage_secret_key")
+    @classmethod
+    def _reject_default_storage_credentials(cls, v: str, info: object) -> str:
+        """Reject MinIO's well-known default credentials in production / staging."""
+        data = getattr(info, "data", {}) or {}
+        env = data.get("app_env", "development")
+        if env in ("production", "staging") and v == "minioadmin":
+            raise ValueError(
+                f"{info.field_name.upper()} must not use the default 'minioadmin' value in "
+                f"app_env={env!r}. Set a strong random credential."
+            )
+        return v
+
+    @field_validator("nin_vault_key")
+    @classmethod
+    def _require_nin_vault_key(cls, v: str, info: object) -> str:
+        """Require a non-empty NIN vault key in production / staging."""
+        data = getattr(info, "data", {}) or {}
+        env = data.get("app_env", "development")
+        if env in ("production", "staging") and not v:
+            raise ValueError(
+                f"NIN_VAULT_KEY must be set to a 32-byte base64 Fernet key in app_env={env!r}."
+            )
+        return v
+
+    @field_validator("nin_hash_salt")
+    @classmethod
+    def _require_strong_nin_hash_salt(cls, v: str, info: object) -> str:
+        """Require a minimum-entropy NIN hash salt in production / staging."""
+        data = getattr(info, "data", {}) or {}
+        env = data.get("app_env", "development")
+        if env in ("production", "staging") and len(v) < 16:
+            raise ValueError(
+                f"NIN_HASH_SALT must be at least 16 characters long in app_env={env!r}. "
+                f"Current length: {len(v)}."
+            )
+        return v
+
+    @field_validator("cors_allow_origins")
+    @classmethod
+    def _require_https_cors_origins_in_prod(cls, v: str, info: object) -> str:
+        """Reject plain-http CORS origins in production / staging."""
+        data = getattr(info, "data", {}) or {}
+        env = data.get("app_env", "development")
+        if env in ("production", "staging"):
+            insecure = [
+                o.strip()
+                for o in v.split(",")
+                if o.strip().startswith("http://") and "localhost" not in o and "127.0.0.1" not in o
+            ]
+            if insecure:
+                raise ValueError(
+                    f"CORS_ALLOW_ORIGINS contains insecure http:// origins in app_env={env!r}: "
+                    f"{insecure}. Use https:// for all production origins."
+                )
+        return v
+
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    def validate_for_env(self) -> None:
+        """Collect all environment misconfigurations and raise at startup.
+
+        Called once from the FastAPI lifespan so every problem is reported
+        together rather than the app failing silently or returning 503 on the
+        first request.
+        """
+        errors: list[str] = []
+
+        if not self.anthropic_api_key:
+            errors.append("ANTHROPIC_API_KEY is not set — Claude calls will fail.")
+
+        if self.app_env in ("production", "staging"):
+            if not self.api_token:
+                errors.append(
+                    "API_TOKEN is not set — all protected endpoints will return 401."
+                )
+            if not self.nrs_client_secret:
+                errors.append(
+                    "NRS_CLIENT_SECRET is not set — NRS submission will fail in production."
+                )
+            if "localhost" in self.database_url or "127.0.0.1" in self.database_url:
+                errors.append(
+                    "DATABASE_URL still points to localhost — use the production database URL."
+                )
+            if "localhost" in self.storage_endpoint:
+                errors.append(
+                    "STORAGE_ENDPOINT still points to localhost — use the production object-store URL."
+                )
+
+        if errors:
+            bullet_list = "\n  - ".join(errors)
+            raise RuntimeError(
+                f"Mai Filer startup failed — {len(errors)} configuration error(s):\n  - {bullet_list}"
+            )
 
     def resolve_secret(self, key: str) -> str:
         """Return the current value for `key`, preferring Secrets Manager
