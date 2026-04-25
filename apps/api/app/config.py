@@ -74,7 +74,7 @@ class Settings(BaseSettings):
 
     # Comma-separated list of origins the web app is served from.
     # Example: "https://mai-filer-web.up.railway.app,http://localhost:3000"
-    cors_allow_origins: str = "http://localhost:3000"
+    cors_allow_origins: str = "http://localhost:3000,https://cnbssa.github.io"
 
     # Secrets backend: "env" (dev), "aws" (prod). When "aws",
     # `SECRETS_PATH_PREFIX` + `AWS_REGION` must be set; `boto3` must be
