@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
+from app.api.limits import limiter
+
+log = logging.getLogger(__name__)
 
 from app.db.session import get_session
 from app.identity.base import AggregatorError
@@ -49,7 +54,9 @@ def get_service(session: Session = Depends(get_session)) -> IdentityService:
 
 
 @router.post("/verify")
+@limiter.limit("10/minute")
 async def verify(
+    request: Request,
     body: VerifyRequest,
     service: IdentityService = Depends(get_service),
 ) -> dict[str, Any]:
@@ -69,18 +76,24 @@ async def verify(
     except ConsentRequiredError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ValueError as exc:
+        log.warning("Identity verify validation error", exc_info=exc)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid identity data supplied. Check the request and try again.",
         ) from exc
     except AggregatorError as exc:
+        log.error("Identity aggregator error", exc_info=exc)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Identity verification is temporarily unavailable. Please try again.",
         ) from exc
     return result.to_dict()
 
 
 @router.post("/verify-cac")
+@limiter.limit("10/minute")
 async def verify_cac(
+    request: Request,
     body: VerifyCACRequest,
     service: IdentityService = Depends(get_service),
 ) -> dict[str, Any]:
@@ -101,11 +114,15 @@ async def verify_cac(
     except ConsentRequiredError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ValueError as exc:
+        log.warning("CAC verify validation error", exc_info=exc)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid corporate data supplied. Check the request and try again.",
         ) from exc
     except AggregatorError as exc:
+        log.error("CAC aggregator error", exc_info=exc)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Corporate registry verification is temporarily unavailable. Please try again.",
         ) from exc
     return result.to_dict()
