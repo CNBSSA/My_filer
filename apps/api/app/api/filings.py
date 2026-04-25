@@ -14,9 +14,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from app.api.limits import limiter
 
 from app.db.models import Filing
 from app.db.session import get_session
@@ -122,7 +124,9 @@ async def run_audit(
 
 
 @router.post("/{filing_id}/pack")
+@limiter.limit("10/minute")
 async def build_pack(
+    request: Request,
     filing_id: str,
     session: Session = Depends(get_session),
     storage: StorageAdapter = Depends(get_storage),
