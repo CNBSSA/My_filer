@@ -30,6 +30,12 @@ export default function Home() {
           {t.aboutHeading}
         </h2>
         <p className="max-w-2xl leading-7 text-zinc-600">{t.aboutBody}</p>
+        <Link
+          href="/how-it-works"
+          className="mt-3 inline-flex items-center text-sm font-semibold text-emerald-700 hover:underline"
+        >
+          {t.seeHowItWorks} →
+        </Link>
       </div>
 
       {/* Taxpayer type cards */}
@@ -104,6 +110,12 @@ export default function Home() {
 
       {/* Secondary links */}
       <div className="flex w-full flex-wrap gap-3">
+        <Link
+          href="/how-it-works"
+          className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-6 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+        >
+          {t.seeHowItWorks} →
+        </Link>
         <Link
           href="/dashboard"
           className="inline-flex items-center justify-center rounded-full border border-zinc-300 bg-white px-6 py-2.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 hover:border-zinc-400"

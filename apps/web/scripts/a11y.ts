@@ -33,6 +33,7 @@ const ROUTES: readonly string[] = [
   "/chat",
   "/identity",
   "/dashboard",
+  "/how-it-works",
   "/ngo",
   "/sme",
 ];
