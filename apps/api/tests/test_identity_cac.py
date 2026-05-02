@@ -296,8 +296,9 @@ def test_verify_cac_endpoint_requires_consent_flag() -> None:
 
 
 def test_verify_cac_endpoint_maps_aggregator_error_to_502(monkeypatch) -> None:
-    """The default Dojah adapter talks to dev-missing creds which will raise
-    AggregatorError — the endpoint should translate that to a 502, not 500."""
+    """AggregatorError must surface as 502, not 500. The response body uses
+    a generic "temporarily unavailable" message — the underlying error stays
+    in the server logs so callers don't get a vendor-specific information leak."""
     from app.api import identity as identity_api
 
     class BustedSvc:
@@ -312,7 +313,7 @@ def test_verify_cac_endpoint_maps_aggregator_error_to_502(monkeypatch) -> None:
             json={"rc_number": RC, "consent": True},
         )
         assert resp.status_code == 502
-        assert "no sandbox creds" in resp.json()["detail"]
+        assert "temporarily unavailable" in resp.json()["detail"].lower()
     finally:
         app.dependency_overrides.pop(identity_api.get_service, None)
 

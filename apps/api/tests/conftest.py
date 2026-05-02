@@ -15,10 +15,31 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.auth import require_api_token
 from app.db.base import Base
 from app.db.session import get_session as real_get_session
 from app.db import models  # noqa: F401  registers tables with Base.metadata
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _bypass_api_token_auth() -> Generator[None, None, None]:
+    """Override `require_api_token` to a no-op for every test.
+
+    Production wires `Depends(require_api_token)` on every PII-touching
+    router (top-level on most, router-level on documents + memory).
+    Without this override every endpoint test 401s because no
+    `API_TOKEN` env var is set in the test environment, and tests
+    don't carry a Bearer header.
+
+    Authentication itself is exercised in `tests/test_auth.py` (or the
+    equivalent), which clears this override locally.
+    """
+    app.dependency_overrides[require_api_token] = lambda: None
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(require_api_token, None)
 
 
 @pytest.fixture
