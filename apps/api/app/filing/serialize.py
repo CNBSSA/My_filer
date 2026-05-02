@@ -7,10 +7,12 @@ emit a stable, ordered JSON pack suitable for:
   - Storage in Postgres as a point-in-time immutable record.
 
 Rules:
-  * Pure functional — same input, same output.
+  * Deterministic logical content — same input produces the same logical
+    pack. The `generated_at` timestamp is wall-clock, so byte-equality is
+    NOT promised; equality on every other field is.
   * No Decimal floats; all amounts rendered as strings with kobo precision.
-  * Key order is locked so two packs with identical contents are
-    byte-identical after `json.dumps(sort_keys=False)`.
+  * Key order is locked so two packs with identical content (other than
+    `generated_at`) diff cleanly under `json.dumps(sort_keys=False)`.
 """
 
 from __future__ import annotations

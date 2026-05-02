@@ -21,9 +21,9 @@ const STEPS: Step[] = [
   },
   {
     no: "2",
-    title: "Send your documents — payslip, receipts, statements",
+    title: "Send your documents — payslip, bank statement, receipt",
     body:
-      "Upload a photo or PDF of a payslip, bank statement, contract, or CAC certificate. Claude Vision reads them, extracts the structured numbers, and asks you to confirm anything ambiguous before it lands in your return.",
+      "Upload a photo or PDF of a payslip, bank statement, or receipt. Claude Vision reads them and extracts the structured numbers. CAC certificates can be attached as supporting documents. She'll ask follow-up questions if anything's ambiguous.",
   },
   {
     no: "3",
@@ -35,13 +35,13 @@ const STEPS: Step[] = [
     no: "4",
     title: "Audit Shield runs every check before you submit",
     body:
-      "11 structural checks for individuals, 10 for corporates, 11 for NGOs — NIN format, name match against NIMC, future tax years, declarations affirmed, schedule consistency, supporting docs. Findings come back as green, yellow, or red. You only download a pack if it's green or yellow.",
+      "11 structural checks for individuals, 10 for corporates, 12 for NGOs — NIN format, name match against NIMC, future tax years, declarations affirmed, schedule consistency, supporting docs. Findings come back as green, yellow, or red. You only download a pack if it's green or yellow.",
   },
   {
     no: "5",
     title: "Download a filing pack — PDF + canonical JSON",
     body:
-      "A signed, time-stamped PDF you can read like a real return, plus a JSON pack with every line item. Today: print + manually submit at the NRS portal. Once NRS Rev360 sandbox credentials are wired, Mai submits directly and pulls back the IRN + CSID + QR code.",
+      "A time-stamped PDF you can read like a real return, plus a JSON pack with every line item. Today: print + manually submit at the NRS portal. Once NRS Rev360 sandbox credentials are wired, Mai submits directly and pulls back the IRN + CSID + QR code.",
   },
 ];
 
@@ -343,8 +343,8 @@ export default function HowItWorksPage() {
             <h3 className="font-medium">Decimal precision throughout</h3>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
               Every naira / kobo amount is computed in Decimal — no
-              floating-point drift. Pack files are byte-stable for two
-              identical inputs.
+              floating-point drift. Deterministic key order means the same
+              input produces the same logical pack.
             </p>
           </div>
           <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
